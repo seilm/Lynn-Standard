@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lynn Standard</title>
+<meta name="description" content="건축예산팀 실행파트 · 실행 편성 기준 변경 이력 관리">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app"><div class="loading">불러오는 중…</div></div>
+
+<!-- Supabase client (DB + Auth + Storage) -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<!-- PDF 첨부파일 미리보기 -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<!-- Excel(.xlsx/.xls) 첨부 업로드 시 시트 개수만 가볍게 확인하는 용도 -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<!-- Excel 첨부파일 미리보기 — 무료 SheetJS(xlsx.js)는 셀 채우기색·글꼴 굵기를 읽지 못해서(유료 Pro 전용 기능),
+     실제 서식(채우기색·굵게·테두리)까지 읽어올 수 있는 ExcelJS로 미리보기를 렌더링합니다 -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<!-- Excel 미리보기를 이미지로 캡처(병합 셀·서식 깨짐 방지) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+<!-- 이 사이트의 Supabase 프로젝트 연결 정보 (배포 전 반드시 채워넣기 — README.md 참고) -->
+<script src="js/config.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
