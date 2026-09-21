@@ -79,13 +79,13 @@ img{ max-width:100%; }
     box-shadow:none;
     padding:10px 16px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;
   }
-  .brand{ display:flex; align-items:baseline; gap:6px; margin-right:6px; cursor:pointer; flex-shrink:0; }
+  .brand{ display:flex; align-items:baseline; gap:7px; margin-right:8px; cursor:pointer; flex-shrink:0; }
   .brand-logo{ display:inline-flex; line-height:0; flex-shrink:0; }
-  .brand-logo img{ height:23px; width:auto; display:block; transform:translateY(24.4%); filter:brightness(0) opacity(.88); image-rendering:-webkit-optimize-contrast; }
-  .brand .mark{ font-family:'Poppins',var(--font-d); font-weight:700; font-size:18px; letter-spacing:0.01em; color:var(--header-accent); line-height:1; }
+  .brand-logo img{ height:28px; width:auto; display:block; transform:translateY(24.4%); filter:brightness(0) opacity(.88); image-rendering:-webkit-optimize-contrast; }
+  .brand .mark{ font-family:'Poppins',var(--font-d); font-weight:700; font-size:22px; letter-spacing:0.01em; color:var(--header-accent); line-height:1; }
   .brand-dot{ display:inline-block; border-radius:50%; background:var(--header-accent); flex-shrink:0; }
-  .brand .brand-dot{ width:5px; height:5px; margin-left:-3px; align-self:flex-end; margin-bottom:3px; }
-  .brand .sub{ font-family:var(--font-m); font-size:10.5px; color:var(--header-ink-soft); letter-spacing:.04em; margin-left:4px; position:relative; top:-1.5px; }
+  .brand .brand-dot{ width:6px; height:6px; margin-left:-3px; align-self:flex-end; margin-bottom:4px; }
+  .brand .sub{ font-family:var(--font-m); font-size:11px; color:var(--header-ink-soft); letter-spacing:.04em; margin-left:5px; position:relative; top:-1.5px; }
   .search-wrap{ flex:1 1 200px; min-width:140px; max-width:420px; position:relative; }
   .search-wrap input{
     width:100%; padding:6px 12px 6px 30px; border-radius:var(--radius); border:1px solid var(--line);
@@ -124,6 +124,9 @@ img{ max-width:100%; }
   .btn.ghost:hover{ border-color:var(--accent); color:var(--accent); filter:none; box-shadow:none; }
   .btn.danger{ background:transparent; color:var(--bad); border-color:var(--bad-line); box-shadow:none; }
   .btn.danger:hover{ background:var(--bad-soft); filter:none; box-shadow:none; }
+  .btn.sm{ padding:4px 11px; font-size:11px; font-weight:500; }
+  /* 상세 카드의 "수정"/"삭제" 버튼: 각자 따로 줄을 차지하던 걸 작은 크기로 오른쪽 아래에 나란히 모아둔다. */
+  .card-actions{ display:flex; justify-content:flex-end; gap:6px; margin-top:16px; padding-top:14px; border-top:1px solid var(--line-soft); }
   .btn.accent{
     background:var(--header-accent); border:none; color:#fff;
     box-shadow:none;
@@ -410,14 +413,16 @@ img{ max-width:100%; }
   }
   .check-row .apply-check:checked{ background:var(--good); border-color:var(--good); }
   .check-row .apply-check:checked::after{
-    content:""; position:absolute; left:6px; top:2.5px; width:4.5px; height:9px;
-    border:solid #fff; border-width:0 1.4px 1.4px 0; transform:rotate(45deg);
+    content:""; position:absolute; left:5.5px; top:2px; width:5px; height:9px;
+    border:solid #fff; border-width:0 2px 2px 0; transform:rotate(45deg);
   }
   .check-row .apply-check:disabled{ opacity:.55; cursor:default; }
   .check-row .rowmain{ cursor:pointer; }
   .check-row .rowmain:hover .rowtitle{ color:var(--accent); }
-  .check-row.applied{ opacity:.6; }
-  .check-row.applied .apply-check{ opacity:1; }
+  /* 체크된 항목의 텍스트만 흐리게 처리한다. 예전엔 .check-row 전체에 opacity를 줘서 체크박스까지
+     함께 반투명하게 합성됐었는데(자식에 opacity:1을 줘도 부모 opacity가 이미 화면에 옅게 그려버려서
+     소용없었다), 그래서 체크박스는 요소 자체(:not(.apply-check))에서 제외해 항상 진초록 그대로 나오게 한다. */
+  .check-row.applied > :not(.apply-check){ opacity:.6; }
   .check-row.applied .rowtitle{ text-decoration:line-through; color:var(--ink-faint); }
   .check-row.no-check .rowdate{ margin-left:2px; }
 

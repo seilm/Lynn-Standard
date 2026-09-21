@@ -1129,6 +1129,10 @@
       var rootLeft = root.getBoundingClientRect().left;
       S.sidebarW = Math.max(150, Math.min(420, clientX - rootLeft));
       applyLayoutWidths();
+      // 공종 목록(사이드바) 너비를 드래그하는 동안, 상세 페이지 좌우 화살표도 카드 위치를 바로바로 따라가게 한다.
+      // (예전에는 드래그가 끝나고 다음 카드로 넘어갈 때만 위치가 갱신돼서, 드래그 직후에는 화살표가
+      //  카드 위에 겹쳐 보이는 문제가 있었다.)
+      positionDetailNavArrows();
     });
     var hr = document.getElementById("handleRight");
     if(hr) startDrag(hr, function(clientX){
@@ -1137,6 +1141,7 @@
       var rootRight = root.getBoundingClientRect().right;
       S.docsearchW = Math.max(260, Math.min(560, rootRight - clientX));
       applyLayoutWidths();
+      positionDetailNavArrows();
     });
   }
 
@@ -1384,34 +1389,35 @@
 
     var reasonBlock = c.reason ? '<div class="block"><h3>변경 사유</h3><p>'+esc(c.reason)+'</p></div>' : "";
 
+    // "수정"/"삭제" 버튼은 각자 따로 줄을 차지하던 것을, 카드 오른쪽 아래에 작은 크기로 나란히 모아둔다.
+    var editBtnHtml = "";
     var approveBar = "";
     if(c.status==="pending"){
-      var editBtnHtml = canEditChange(c) ? '<button class="btn ghost" id="btnEditChange" type="button">수정</button>' : "";
       if(S.isPartLeader){
+        var pendingEditBtn = canEditChange(c) ? '<button class="btn ghost" id="btnEditChange" type="button">수정</button>' : "";
         approveBar = '<div class="approve-bar">'
-          + editBtnHtml
+          + pendingEditBtn
           +'<button class="btn" id="btnApprove">승인</button>'
           +'<button class="btn danger" id="btnRejectToggle">반려</button>'
         +'</div>'
         +'<div class="reject-box" id="rejectBox"><textarea id="rejectReason" placeholder="반려 사유를 입력해주세요"></textarea>'
           +'<div style="display:flex;gap:8px;"><button class="btn danger" id="btnRejectConfirm">반려 확정</button><button class="btn ghost" id="btnRejectCancel">취소</button></div></div>';
       } else {
-        approveBar = '<div class="banner info">파트장 승인 대기 중입니다.</div>'
-          + (editBtnHtml ? '<div style="margin-top:10px;">'+editBtnHtml+'</div>' : "");
+        approveBar = '<div class="banner info">파트장 승인 대기 중입니다.</div>';
+        editBtnHtml = canEditChange(c) ? '<button class="btn ghost sm" id="btnEditChange" type="button">수정</button>' : "";
       }
     } else if(c.status==="rejected" && c.rejectReason){
       approveBar = '<div class="block"><h3>반려 사유</h3><p>'+esc(c.rejectReason)+'</p></div>';
-    } else if(c.status==="approved" && canEditChange(c)){
-      approveBar = '<div class="approve-bar"><button class="btn ghost" id="btnEditChange" type="button">수정</button></div>';
+    } else if(c.status==="approved"){
+      editBtnHtml = canEditChange(c) ? '<button class="btn ghost sm" id="btnEditChange" type="button">수정</button>' : "";
     }
 
+    var deleteBtnHtml = canDelete() ? '<button class="btn danger sm" id="btnDeleteToggle" type="button">삭제</button>' : "";
+    var actionsRow = (editBtnHtml || deleteBtnHtml) ? '<div class="card-actions">'+editBtnHtml+deleteBtnHtml+'</div>' : "";
     var deleteBlock = "";
     if(canDelete()){
       var delOpen = S.deleteConfirmId === c.id;
-      deleteBlock = '<div class="approve-bar" style="border-top:1px dashed var(--line-soft);">'
-        +'<button class="btn danger" id="btnDeleteToggle" type="button">삭제</button>'
-      +'</div>'
-      +'<div class="delete-box'+(delOpen?' show':'')+'" id="deleteBox">'
+      deleteBlock = '<div class="delete-box'+(delOpen?' show':'')+'" id="deleteBox">'
         +'<div class="meta" style="color:var(--bad);">이 항목을 삭제하면 되돌릴 수 없습니다. 정말 삭제할까요?</div>'
         +'<div style="display:flex;gap:8px;"><button class="btn danger" id="btnDeleteConfirm" type="button">삭제 확정</button><button class="btn ghost" id="btnDeleteCancel" type="button">취소</button></div>'
       +'</div>';
@@ -1430,7 +1436,7 @@
           +'<span class="fl-item"><b>등록자</b><span class="fl-val">'+userLabel(c.submittedById, c.submittedByName, "초기 등록")+'</span></span>'
         +'</div>'
         +'<div class="block"><h3>실행 반영 내용</h3><p>'+esc(c.summary)+'</p></div>'
-        +execBlock + attachBlock + reasonBlock + approveBar + deleteBlock
+        +execBlock + attachBlock + reasonBlock + approveBar + actionsRow + deleteBlock
       +'</div>'
     +'</div>';
   }
