@@ -399,10 +399,25 @@ img{ max-width:100%; }
   .site-progress-fill{ height:100%; background:var(--good); border-radius:999px; transition:width .25s ease; }
   .site-progress-label{ font-size:11.5px; color:var(--ink-soft); margin-top:6px; }
   .check-row{ cursor:default; }
-  .check-row .apply-check{ width:18px; height:18px; accent-color:var(--good); flex-shrink:0; cursor:pointer; }
+  /* 네이티브 체크박스 대신 직접 그려서, 체크 표시 굵기와 체크됐을 때의 진초록 색을 정확히 제어한다.
+     (accent-color로는 브라우저마다 체크 두께를 조절할 수 없고, 행이 흐려질 때 체크박스까지 같이
+     뿌옇게 보이는 문제가 있었다.) */
+  .check-row .apply-check{
+    -webkit-appearance:none; appearance:none; box-sizing:border-box;
+    width:18px; height:18px; border-radius:5px; border:1.5px solid var(--line-strong, var(--ink-faint));
+    background:var(--surface); flex-shrink:0; cursor:pointer; position:relative;
+    transition:background .12s ease, border-color .12s ease;
+  }
+  .check-row .apply-check:checked{ background:var(--good); border-color:var(--good); }
+  .check-row .apply-check:checked::after{
+    content:""; position:absolute; left:6px; top:2.5px; width:4.5px; height:9px;
+    border:solid #fff; border-width:0 1.4px 1.4px 0; transform:rotate(45deg);
+  }
+  .check-row .apply-check:disabled{ opacity:.55; cursor:default; }
   .check-row .rowmain{ cursor:pointer; }
   .check-row .rowmain:hover .rowtitle{ color:var(--accent); }
   .check-row.applied{ opacity:.6; }
+  .check-row.applied .apply-check{ opacity:1; }
   .check-row.applied .rowtitle{ text-decoration:line-through; color:var(--ink-faint); }
   .check-row.no-check .rowdate{ margin-left:2px; }
 
@@ -480,8 +495,8 @@ img{ max-width:100%; }
     background:var(--surface); border-radius:20px; padding:34px 30px; max-width:380px; width:100%;
     box-shadow:0 10px 34px rgba(60,50,30,.10); text-align:center;
   }
-  .auth-gate-logo{ display:flex; align-items:center; justify-content:center; gap:7px; margin-bottom:22px; }
-  .auth-gate-logo img{ height:26px; width:auto; display:block; filter:brightness(0); }
+  .auth-gate-logo{ display:flex; align-items:baseline; justify-content:center; gap:7px; margin-bottom:22px; }
+  .auth-gate-logo img{ height:26px; width:auto; display:block; transform:translateY(24.4%); filter:brightness(0); }
   .auth-gate-logo span{ font-family:'Poppins',var(--font-d); font-weight:700; font-size:21px; color:var(--header-accent); letter-spacing:.005em; }
   .auth-gate-logo .brand-dot{ width:7px; height:7px; margin-left:-4px; align-self:flex-end; margin-bottom:4px; }
   .auth-gate-card h1{ font-family:var(--font-d); font-size:18px; font-weight:700; margin:0 0 10px; color:var(--ink); letter-spacing:-0.01em; }
@@ -604,7 +619,10 @@ img{ max-width:100%; }
     .gapply-row-wrap{ align-items:flex-start; }
     .gapply-row-wrap .gapply-line{ flex-basis:100%; }
   }
-  #btnRequestSiteApproval, #stampSiteGuidelineBtn{ border:none; font-weight:600; }
+  /* 이 두 버튼은 id 선택자라 우선순위가 높아서, 위쪽 .site-control-row .btn / .gapply-row-wrap .btn
+     의 font-weight:500 지정이 무시되고 있었다 — 그게 "더 얇게" 요청이 실제로 반영되지 않던 원인.
+     여기서 직접 더 얇은 굵기로 지정한다. */
+  #btnRequestSiteApproval, #stampSiteGuidelineBtn{ border:none; font-weight:400; }
 
   /* ---- collapsible form sections ---- */
   .f-details{ border:1px solid var(--line); border-radius:var(--radius); margin-bottom:14px; overflow:hidden; }
@@ -613,6 +631,12 @@ img{ max-width:100%; }
   .f-details summary::before{ content:"▸"; font-size:10px; }
   .f-details[open] summary::before{ content:"▾"; }
   .f-details > .f-details-body{ padding:14px 13px 4px; }
+  /* "변경 사유" textarea도 "실행 반영 내용" textarea(.f-field textarea)와 똑같은 모양으로 맞춘다. */
+  .f-details-body textarea{
+    padding:7px 10px; border-radius:8px; border:1px solid var(--line); background:var(--surface); color:var(--ink); outline:none; width:100%;
+    font-size:12.5px; resize:vertical; min-height:60px; font-family:var(--font-b); box-sizing:border-box;
+  }
+  .f-details-body textarea:focus-visible{ border-color:var(--accent); }
 
   [hidden]{ display:none!important; }
 

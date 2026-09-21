@@ -40,7 +40,7 @@
     changes:[], members:{}, sites:[],
     filters:{ major:null, minor:null, status:"approved", q:"" },
     collapsedMajors:{},
-    formExecItems:[], formAttachments:[],
+    formExecItems:[], formAttachments:[], formDraft:null,
     attachItemId:null, attachIndex:0,
     lastListHash:"#/",
     formEditId:undefined,
@@ -110,8 +110,11 @@
     return "";
   }
   function canEditChange(c){
-    if(!c || c.status !== "pending") return false;
-    return c.submittedById === S.viewerId || S.isPartLeader || S.isOwner;
+    if(!c) return false;
+    if(c.status === "pending") return c.submittedById === S.viewerId || S.isPartLeader || S.isOwner;
+    // 승인이 끝난 내역도 파트장(또는 총괄)은 계속 수정할 수 있게 한다.
+    if(c.status === "approved") return S.isPartLeader || S.isOwner;
+    return false;
   }
   function canWrite(){
     return !!(S.isTeamMember || S.isPartLeader || S.isOwner);
@@ -1398,6 +1401,8 @@
       }
     } else if(c.status==="rejected" && c.rejectReason){
       approveBar = '<div class="block"><h3>반려 사유</h3><p>'+esc(c.rejectReason)+'</p></div>';
+    } else if(c.status==="approved" && canEditChange(c)){
+      approveBar = '<div class="approve-bar"><button class="btn ghost" id="btnEditChange" type="button">수정</button></div>';
     }
 
     var deleteBlock = "";
@@ -1559,16 +1564,27 @@
   function viewForm(editId){
     var c = editId ? S.changes.find(function(x){ return x.id===editId; }) : null;
     if(editId && !canEditChange(c)){
-      return '<div class="detail"><a class="back-link" href="'+esc(S.lastListHash)+'">&larr; 목록으로</a><div class="empty">수정할 수 없는 항목입니다. 대기중 상태이면서 등록자 본인 또는 파트장인 경우에만 수정할 수 있어요.</div></div>';
+      return '<div class="detail"><a class="back-link" href="'+esc(S.lastListHash)+'">&larr; 목록으로</a><div class="empty">수정할 수 없는 항목입니다. 대기중 상태이면서 등록자 본인 또는 파트장인 경우, 혹은 승인완료 상태이면서 파트장인 경우에만 수정할 수 있어요.</div></div>';
     }
     if(S.formEditId !== (editId||null)){
       S.formEditId = editId || null;
       if(c){
         S.formExecItems = (c.execItems||[]).map(function(it){ return Object.assign({},it); });
         S.formAttachments = (c.attachments||[]).map(function(a){ return Object.assign({},a); });
+        S.formDraft = {
+          changeDate: c.changeDate||"", major: c.major||"", minor: c.minor||"", urgency: c.urgency||"",
+          title: c.title||"", summary: c.summary||"", effScope: c.effectiveScope||"전현장",
+          tags: (c.tags||[]).join(", "), reason: c.reason||"",
+          secReasonOpen: !!c.reason, secExecOpen: !!(c.execItems||[]).length, secFilesOpen: !!(c.attachments||[]).length
+        };
       } else {
         S.formExecItems = [];
         S.formAttachments = [];
+        S.formDraft = {
+          changeDate: new Date().toISOString().slice(0,10), major: S.filters.major||"", minor: S.filters.minor||"",
+          urgency: "", title: "", summary: "", effScope: "전현장", tags: "", reason: "",
+          secReasonOpen:false, secExecOpen:false, secFilesOpen:false
+        };
       }
     }
     S.formExecItems = S.formExecItems.length ? S.formExecItems : [{name:"",spec:"",unit:"",qty:"",unitPrice:"",amount:""}];
@@ -1729,33 +1745,48 @@
   function wireForm(editId){
     var c = editId ? S.changes.find(function(x){ return x.id===editId; }) : null;
     if(editId && !canEditChange(c)) return;
+    // 지침서 검색 패널을 열거나 검색하는 동안에도 render()가 다시 호출되면서 폼이 통째로 다시 그려지는데,
+    // 그때 왼쪽에 입력해둔 내용이 사라지지 않도록 모든 입력값을 S.formDraft(초안)에 실시간으로 저장해두고,
+    // 폼을 다시 그릴 때마다 이 초안 값으로 채운다.
+    var draft = S.formDraft;
     var majorSel = document.getElementById("f-major");
     var minorSel = document.getElementById("f-minor");
     function fillMinor(){
       minorSel.innerHTML = CATEGORY_TREE[majorSel.value].map(function(m){ return '<option value="'+esc(m)+'">'+esc(m)+'</option>'; }).join("");
     }
-    if(c) majorSel.value = c.major;
-    else if(S.filters.major) majorSel.value = S.filters.major;
+    if(draft.major) majorSel.value = draft.major;
     fillMinor();
-    if(c) minorSel.value = c.minor;
-    else if(S.filters.minor && CATEGORY_TREE[majorSel.value].indexOf(S.filters.minor)!==-1) minorSel.value = S.filters.minor;
-    majorSel.addEventListener("change", fillMinor);
+    if(draft.minor && CATEGORY_TREE[majorSel.value].indexOf(draft.minor)!==-1) minorSel.value = draft.minor;
+    draft.minor = minorSel.value;
+    majorSel.addEventListener("change", function(){
+      draft.major = majorSel.value;
+      fillMinor();
+      draft.minor = minorSel.value;
+    });
+    minorSel.addEventListener("change", function(){ draft.minor = minorSel.value; });
 
-    if(c){
-      document.getElementById("f-title").value = c.title||"";
-      document.getElementById("f-summary").value = c.summary||"";
-      document.getElementById("f-changeDate").value = c.changeDate||"";
-      document.getElementById("f-effScope").value = c.effectiveScope||"전현장";
-      document.getElementById("f-urgency").value = c.urgency||"";
-      document.getElementById("f-tags").value = (c.tags||[]).join(", ");
-      document.getElementById("f-reason").value = c.reason||"";
-      if(c.reason) document.getElementById("secReason").open = true;
-      if((c.execItems||[]).length) document.getElementById("secExec").open = true;
-      if((c.attachments||[]).length) document.getElementById("secFiles").open = true;
-    } else {
-      var today = new Date().toISOString().slice(0,10);
-      document.getElementById("f-changeDate").value = today;
-    }
+    document.getElementById("f-title").value = draft.title;
+    document.getElementById("f-summary").value = draft.summary;
+    document.getElementById("f-changeDate").value = draft.changeDate;
+    document.getElementById("f-effScope").value = draft.effScope;
+    document.getElementById("f-urgency").value = draft.urgency;
+    document.getElementById("f-tags").value = draft.tags;
+    document.getElementById("f-reason").value = draft.reason;
+    if(draft.secReasonOpen) document.getElementById("secReason").open = true;
+    if(draft.secExecOpen) document.getElementById("secExec").open = true;
+    if(draft.secFilesOpen) document.getElementById("secFiles").open = true;
+
+    document.getElementById("f-title").addEventListener("input", function(e){ draft.title = e.target.value; });
+    document.getElementById("f-summary").addEventListener("input", function(e){ draft.summary = e.target.value; });
+    document.getElementById("f-changeDate").addEventListener("input", function(e){ draft.changeDate = e.target.value; });
+    document.getElementById("f-effScope").addEventListener("input", function(e){ draft.effScope = e.target.value; });
+    document.getElementById("f-urgency").addEventListener("change", function(e){ draft.urgency = e.target.value; });
+    document.getElementById("f-tags").addEventListener("input", function(e){ draft.tags = e.target.value; });
+    document.getElementById("f-reason").addEventListener("input", function(e){ draft.reason = e.target.value; });
+    [["secReason","secReasonOpen"],["secExec","secExecOpen"],["secFiles","secFilesOpen"]].forEach(function(pair){
+      var el = document.getElementById(pair[0]);
+      if(el) el.addEventListener("toggle", function(){ draft[pair[1]] = el.open; });
+    });
 
     renderExecRows();
     renderFileChips();
@@ -1816,7 +1847,7 @@
       }
       S.db.doc("changes/"+editId).update(payload).then(function(){
         toast(alsoApprove ? "수정 후 승인되었습니다." : "수정되었습니다.");
-        S.formExecItems = []; S.formAttachments = []; S.formEditId = undefined;
+        S.formExecItems = []; S.formAttachments = []; S.formEditId = undefined; S.formDraft = null;
         location.hash = "#/item/"+editId;
       }).catch(function(err){
         console.warn(err);
@@ -1829,7 +1860,7 @@
     payload.approvedById = null; payload.approvedByName = null; payload.approvedAt = null; payload.rejectReason = null;
     S.db.collection("changes").add(payload).then(function(ref){
       toast("등록되었습니다. 파트장 승인 대기 중입니다.");
-      S.formExecItems = []; S.formAttachments = []; S.formEditId = undefined;
+      S.formExecItems = []; S.formAttachments = []; S.formEditId = undefined; S.formDraft = null;
       location.hash = "#/item/"+ref.id;
     }).catch(function(err){
       console.warn(err);
