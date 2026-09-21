@@ -77,11 +77,11 @@ img{ max-width:100%; }
     position:sticky; top:env(safe-area-inset-top,0px); z-index:30;
     background:var(--header-bg); border-bottom:1px solid var(--header-border);
     box-shadow:none;
-    padding:10px 16px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+    padding:14px 16px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;
   }
-  .brand{ display:flex; align-items:baseline; gap:7px; margin-right:8px; cursor:pointer; flex-shrink:0; }
+  .brand{ display:flex; align-items:baseline; gap:7px; margin-right:22px; cursor:pointer; flex-shrink:0; }
   .brand-logo{ display:inline-flex; line-height:0; flex-shrink:0; }
-  .brand-logo img{ height:28px; width:auto; display:block; transform:translateY(24.4%); filter:brightness(0) opacity(.88); image-rendering:-webkit-optimize-contrast; }
+  .brand-logo img{ height:28px; width:auto; display:block; transform:translateY(24.2%); filter:brightness(0) opacity(.88); image-rendering:-webkit-optimize-contrast; }
   .brand .mark{ font-family:'Poppins',var(--font-d); font-weight:700; font-size:22px; letter-spacing:0.01em; color:var(--header-accent); line-height:1; }
   .brand-dot{ display:inline-block; border-radius:50%; background:var(--header-accent); flex-shrink:0; }
   .brand .brand-dot{ width:6px; height:6px; margin-left:-3px; align-self:flex-end; margin-bottom:4px; }
@@ -103,7 +103,7 @@ img{ max-width:100%; }
   .topbar-actions{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-left:auto; }
   .pill.tb{
     background:transparent; border-color:transparent; color:#3f4753;
-    font-weight:500;
+    font-size:12.5px; font-weight:600;
   }
   .pill.tb:hover{ background:var(--header-chip-bg); border-color:transparent; color:var(--header-ink); }
   .pill.tb.on{ background:var(--header-accent); border-color:var(--header-accent); color:#fff; font-weight:700; }
@@ -412,9 +412,13 @@ img{ max-width:100%; }
     transition:background .12s ease, border-color .12s ease;
   }
   .check-row .apply-check:checked{ background:var(--good); border-color:var(--good); }
+  /* 체크 표시를 border 트릭(회전된 테두리)으로 그리면 위치를 눈대중으로 맞춰야 해서 살짝씩 어긋났다.
+     대신 SVG 체크 아이콘을 배경으로 깔고 background-position:center로 두면 박스 크기와 무관하게
+     항상 정확히 가운데 오게 된다. */
   .check-row .apply-check:checked::after{
-    content:""; position:absolute; left:5.5px; top:2px; width:5px; height:9px;
-    border:solid #fff; border-width:0 2px 2px 0; transform:rotate(45deg);
+    content:""; position:absolute; inset:0;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='4 12.5 9.5 18 20 6'/%3E%3C/svg%3E");
+    background-repeat:no-repeat; background-position:center; background-size:11px 11px;
   }
   .check-row .apply-check:disabled{ opacity:.55; cursor:default; }
   .check-row .rowmain{ cursor:pointer; }
@@ -501,7 +505,7 @@ img{ max-width:100%; }
     box-shadow:0 10px 34px rgba(60,50,30,.10); text-align:center;
   }
   .auth-gate-logo{ display:flex; align-items:baseline; justify-content:center; gap:7px; margin-bottom:22px; }
-  .auth-gate-logo img{ height:26px; width:auto; display:block; transform:translateY(24.4%); filter:brightness(0); }
+  .auth-gate-logo img{ height:26px; width:auto; display:block; transform:translateY(24.2%); filter:brightness(0); }
   .auth-gate-logo span{ font-family:'Poppins',var(--font-d); font-weight:700; font-size:21px; color:var(--header-accent); letter-spacing:.005em; }
   .auth-gate-logo .brand-dot{ width:7px; height:7px; margin-left:-4px; align-self:flex-end; margin-bottom:4px; }
   .auth-gate-card h1{ font-family:var(--font-d); font-size:18px; font-weight:700; margin:0 0 10px; color:var(--ink); letter-spacing:-0.01em; }
