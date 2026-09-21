@@ -83,6 +83,8 @@ img{ max-width:100%; }
   .brand-logo{ display:inline-flex; line-height:0; flex-shrink:0; }
   .brand-logo img{ height:23px; width:auto; display:block; transform:translateY(24.4%); filter:brightness(0) opacity(.88); image-rendering:-webkit-optimize-contrast; }
   .brand .mark{ font-family:'Poppins',var(--font-d); font-weight:700; font-size:18px; letter-spacing:0.01em; color:var(--header-accent); line-height:1; }
+  .brand-dot{ display:inline-block; border-radius:50%; background:var(--header-accent); flex-shrink:0; }
+  .brand .brand-dot{ width:5px; height:5px; margin-left:-3px; align-self:flex-end; margin-bottom:3px; }
   .brand .sub{ font-family:var(--font-m); font-size:10.5px; color:var(--header-ink-soft); letter-spacing:.04em; margin-left:4px; position:relative; top:-1.5px; }
   .search-wrap{ flex:1 1 200px; min-width:140px; max-width:420px; position:relative; }
   .search-wrap input{
@@ -292,13 +294,13 @@ img{ max-width:100%; }
   /* ---- detail ---- */
   .detail{ max-width:760px; margin-left:36px; position:relative; }
   .detail-nav-arrow{
-    position:absolute; top:50%; transform:translateY(-50%);
+    /* top/left은 JS(positionDetailNavArrows)가 카드 위치를 기준으로 매번 계산해서 지정한다.
+       카드 안 콘텐츠 길이와 무관하게 화면상 항상 같은 자리에 뜨도록 position:fixed를 쓴다. */
+    position:fixed; top:0; left:0;
     width:auto; height:auto; border-radius:0; border:none; background:none; box-shadow:none; padding:4px;
     color:var(--ink-faint); font-size:42px; line-height:1; cursor:pointer; z-index:5;
   }
   .detail-nav-arrow:hover{ color:var(--accent); }
-  .detail-nav-arrow.left{ left:-40px; }
-  .detail-nav-arrow.right{ right:-40px; }
   @media (max-width: 1000px){ .detail-nav-arrow{ display:none; } }
   .back-link{ display:inline-flex; align-items:center; gap:5px; font-size:12.5px; color:var(--ink-faint); margin-bottom:12px; }
   .back-link:hover{ color:var(--accent); }
@@ -390,14 +392,14 @@ img{ max-width:100%; }
   }
   .site-control-row .row-spacer{ flex:1 1 auto; }
   .site-control-row .chip{ flex-shrink:0; }
-  .site-control-row .btn{ padding:5px 12px; font-size:11.5px; }
+  .site-control-row .btn{ padding:5px 12px; font-size:11.5px; font-weight:500; }
   @media (max-width:560px){ .site-control-row .row-spacer{ flex-basis:100%; height:0; } }
   .site-progress{ margin:10px 0 16px; }
   .site-progress-bar{ height:8px; border-radius:999px; background:var(--surface-2); border:1px solid var(--line-soft); overflow:hidden; }
   .site-progress-fill{ height:100%; background:var(--good); border-radius:999px; transition:width .25s ease; }
   .site-progress-label{ font-size:11.5px; color:var(--ink-soft); margin-top:6px; }
   .check-row{ cursor:default; }
-  .check-row .apply-check{ width:17px; height:17px; accent-color:var(--good); flex-shrink:0; cursor:pointer; }
+  .check-row .apply-check{ width:18px; height:18px; accent-color:var(--good); flex-shrink:0; cursor:pointer; }
   .check-row .rowmain{ cursor:pointer; }
   .check-row .rowmain:hover .rowtitle{ color:var(--accent); }
   .check-row.applied{ opacity:.6; }
@@ -481,6 +483,7 @@ img{ max-width:100%; }
   .auth-gate-logo{ display:flex; align-items:center; justify-content:center; gap:7px; margin-bottom:22px; }
   .auth-gate-logo img{ height:26px; width:auto; display:block; filter:brightness(0); }
   .auth-gate-logo span{ font-family:'Poppins',var(--font-d); font-weight:700; font-size:21px; color:var(--header-accent); letter-spacing:.005em; }
+  .auth-gate-logo .brand-dot{ width:7px; height:7px; margin-left:-4px; align-self:flex-end; margin-bottom:4px; }
   .auth-gate-card h1{ font-family:var(--font-d); font-size:18px; font-weight:700; margin:0 0 10px; color:var(--ink); letter-spacing:-0.01em; }
   .auth-gate-card p{ font-size:13px; color:var(--ink-soft); line-height:1.65; margin:0; }
   .auth-gate-card .btn.accent{ border-radius:12px; padding:11px 16px; font-size:13.5px; }
@@ -580,7 +583,7 @@ img{ max-width:100%; }
   /* ---- 현장별 지침서 판 선택 (한 줄에 여러 공종을 칩 형태로 나열 + 오른쪽에 일괄기록 버튼) ---- */
   .gapply-row-wrap{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
   .gapply-row-wrap .gapply-line{ flex:1 1 auto; }
-  .gapply-row-wrap .btn{ flex-shrink:0; padding:5px 12px; font-size:11.5px; }
+  .gapply-row-wrap .btn{ flex-shrink:0; padding:5px 12px; font-size:11.5px; font-weight:500; }
   .gapply-line{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; font-size:11.5px; }
   .gapply-item{
     display:inline-flex; align-items:center; gap:3px; white-space:nowrap;

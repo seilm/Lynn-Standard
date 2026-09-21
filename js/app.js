@@ -46,7 +46,7 @@
     formEditId:undefined,
     deleteConfirmId:null,
     sidebarW:196, docsearchW:340,
-    siteDetailId:null, siteViewMode:"checklist",
+    siteDetailId:null, siteViewMode:"checklist", siteDraft:null,
     showWelcome:false,
     unsubs:[],
     guidelineDocs:{}, guidelineChunksByDoc:{}, guidelineRevisions:{}, gdocUploading:{}, gdocPending:{}, pdfCache:{},
@@ -874,7 +874,7 @@
 
   /* ============ auth gate / login / welcome (no topbar) ============ */
   function authGateLogo(){
-    return '<div class="auth-gate-logo"><img src="'+LYNN_LOGO+'" alt="Lynn"><span>Standard</span></div>';
+    return '<div class="auth-gate-logo"><img src="'+LYNN_LOGO+'" alt="Lynn"><span>Standard</span><span class="brand-dot"></span></div>';
   }
   function renderConfigGate(){
     return '<div class="auth-gate">'
@@ -1009,7 +1009,7 @@
 
     return ''
     +'<div class="topbar">'
-      +'<div class="brand" data-nav="home"><span class="brand-logo"><img src="'+LYNN_LOGO+'" alt="Lynn"></span><span class="mark">Standard</span><span class="sub">건축예산팀 · 실행파트</span></div>'
+      +'<div class="brand" data-nav="home"><span class="brand-logo"><img src="'+LYNN_LOGO+'" alt="Lynn"></span><span class="mark">Standard</span><span class="brand-dot"></span><span class="sub">건축예산팀 · 실행파트</span></div>'
       +'<div class="search-wrap"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-3.5-3.5"/></svg>'
         +'<input id="searchInput" type="text" placeholder="공종·내용·#태그 검색" value="'+esc(S.filters.q)+'"></div>'
       +'<div class="topbar-actions">'
@@ -1430,10 +1430,25 @@
     +'</div>';
   }
 
+  // 이전/다음 화살표(position:fixed)를 지금 카드의 실제 위치에 맞춰 배치한다.
+  // top은 카드 내용 길이와 무관하게 항상 같은 값(화면상 고정된 자리)을 쓰고,
+  // left/right만 카드의 실제 가로 위치(사이드바 폭 조절 등 반영)에 맞춰 매번 다시 계산한다.
+  function positionDetailNavArrows(){
+    var card = document.querySelector(".detail-card");
+    if(!card) return;
+    var rect = card.getBoundingClientRect();
+    var fixedTop = 280; // 화면 상단에서부터 고정된 위치 — 카드마다 높이가 달라도 항상 여기.
+    var left = document.querySelector(".detail-nav-arrow.left");
+    var right = document.querySelector(".detail-nav-arrow.right");
+    if(left){ left.style.top = fixedTop+"px"; left.style.left = (rect.left-48)+"px"; }
+    if(right){ right.style.top = fixedTop+"px"; right.style.left = (rect.right+8)+"px"; }
+  }
+
   function wireItem(id){
     var c = S.changes.find(function(x){ return x.id===id; });
     if(!c) return;
     resolveNames();
+    positionDetailNavArrows();
     document.querySelectorAll("[data-detail-nav]").forEach(function(el){
       el.addEventListener("click", function(){ location.hash = "#/item/"+el.getAttribute("data-detail-nav"); });
     });
@@ -2431,8 +2446,8 @@
   // 현장별로 어느 판(개정일)의 지침서가 반영됐는지, 과거 변경 이력 중에서 직접 골라 기록할 수 있게 한다.
   // "공통가설 26.08.18 판 / 건축 26.09.21판 / 현장관리비 26.09.21판" 처럼 한 줄에 들어오도록
   // 공종마다 칩 대신 짧은 라벨 + 드롭다운으로 구성하고, 옵션에서도 파일명은 빼고 판(날짜)만 보여준다.
-  function siteGuidelineControlsHtml(s){
-    var applied = s.appliedGuidelines || {};
+  function siteGuidelineControlsHtml(appliedGuidelines){
+    var applied = appliedGuidelines || {};
     var items = MAJORS.map(function(m){
       var doc = S.guidelineDocs[m];
       if(!doc) return null;
@@ -2456,36 +2471,49 @@
     }).filter(Boolean);
     return items.join("");
   }
+  // 아래 3개 함수는 더 이상 DB에 바로 쓰지 않고, 화면 하단 통합 "저장" 버튼을 누르기 전까지는
+  // S.siteDraft(초안)만 바꾼다 — 실제 반영은 saveSiteAll()에서 한번에 처리한다.
   function stampSiteGuideline(siteId){
-    if(!S.db){ toast("저장 기능을 사용할 수 없습니다."); return; }
+    if(!S.siteDraft) return;
     var applied = {};
     MAJORS.forEach(function(m){
       var doc = S.guidelineDocs[m];
       if(doc && doc.uploadedAt) applied[m] = doc.uploadedAt;
     });
     if(!Object.keys(applied).length){ toast("아직 등록된 지침서가 없어요."); return; }
-    S.db.doc("sites/"+siteId).update({
-      appliedGuidelines: applied, updatedById:S.viewerId, updatedByName:S.viewerName||"", updatedAt: nowIso()
-    }).then(function(){ toast("현재 지침서 기준으로 기록했습니다."); })
-      .catch(function(err){ console.warn(err); toast("저장 중 오류가 발생했습니다."); });
+    S.siteDraft.appliedGuidelines = applied;
+    toast("현재 지침서 기준으로 채웠습니다. 저장 버튼을 눌러야 반영돼요.");
+    render();
   }
   function stampSiteGuidelineMajor(siteId, major, uploadedAt){
-    if(!S.db){ toast("저장 기능을 사용할 수 없습니다."); return; }
-    var s = S.sites.find(function(x){ return x.id===siteId; });
-    var applied = Object.assign({}, (s && s.appliedGuidelines) || {});
+    if(!S.siteDraft) return;
+    var applied = Object.assign({}, S.siteDraft.appliedGuidelines || {});
     if(uploadedAt) applied[major] = uploadedAt; else delete applied[major];
-    S.db.doc("sites/"+siteId).update({
-      appliedGuidelines: applied, updatedById:S.viewerId, updatedByName:S.viewerName||"", updatedAt: nowIso()
-    }).then(function(){ toast(major+" 적용 지침서 판을 저장했습니다."); })
-      .catch(function(err){ console.warn(err); toast("저장 중 오류가 발생했습니다."); });
+    S.siteDraft.appliedGuidelines = applied;
+    render();
   }
   function setSiteManager(siteId, memberId){
+    if(!S.siteDraft) return;
+    S.siteDraft.managerId = memberId || "";
+    render();
+  }
+  function saveSiteAll(id){
     if(!S.db){ toast("저장 기능을 사용할 수 없습니다."); return; }
-    var name = memberId ? ((S.members[memberId] && S.members[memberId].name) || "") : "";
-    S.db.doc("sites/"+siteId).update({
-      managerId: memberId||"", managerName: name, updatedById:S.viewerId, updatedByName:S.viewerName||"", updatedAt: nowIso()
-    }).then(function(){ toast("담당자가 저장되었습니다."); })
-      .catch(function(err){ console.warn(err); toast("저장 중 오류가 발생했습니다."); });
+    var draft = S.siteDraft;
+    if(!draft) return;
+    var managerName = draft.managerId ? ((S.members[draft.managerId] && S.members[draft.managerId].name) || "") : "";
+    S.db.doc("sites/"+id).update({
+      deadline: draft.deadline||"",
+      managerId: draft.managerId||"",
+      managerName: managerName,
+      appliedGuidelines: draft.appliedGuidelines||{},
+      appliedMap: draft.appliedMap||{},
+      updatedById:S.viewerId, updatedByName:S.viewerName||"", updatedAt: nowIso()
+    }).then(function(){
+      toast("저장되었습니다.");
+      S.siteDraft = null; // 다음 렌더링 때 방금 저장된 값으로 초안을 다시 초기화
+      render();
+    }).catch(function(err){ console.warn(err); toast("저장 중 오류가 발생했습니다."); });
   }
 
   function viewSites(){
@@ -2509,7 +2537,6 @@
       return '<button class="row" data-open-site="'+s.id+'">'
         +'<span class="rowdate mono">'+(s.deadline ? fmtDate(s.deadline, precision) : "마감일 미설정")+'</span>'
         +'<div class="rowmain"><div class="rowtitle">'+esc(s.name)+'</div></div>'
-        +(s.managerName ? '<span class="chip neutral">👤 '+esc(s.managerName)+'</span>' : '')
         +(stat.afterCount>0 ? '<span class="chip neutral">마감 후 '+stat.afterCount+'건</span>' : '')
         +(remain>0 ? '<span class="chip pending">미반영 '+remain+'건</span>' : '<span class="chip approved">모두 반영</span>')
       +'</button>';
@@ -2575,39 +2602,49 @@
   function viewSiteDetail(id){
     var s = S.sites.find(function(x){ return x.id===id; });
     if(!s) return '<div class="detail"><div class="empty">현장을 찾을 수 없습니다.</div></div>';
-    if(S.siteDetailId !== id){ S.siteDetailId = id; S.siteViewMode = "checklist"; }
-    var appliedMap = s.appliedMap || {};
-    var rel = siteRelevantChanges(s);
-    var deadlinePrecision = (s.deadline||"").length===7 ? "month" : "day";
+    if(S.siteDetailId !== id){ S.siteDetailId = id; S.siteViewMode = "checklist"; S.siteDraft = null; }
+    // 실행마감일/담당자/지침서시점/체크리스트는 전부 이 초안(draft)에만 반영되고,
+    // 통합 저장 버튼을 눌러야 실제로 DB에 저장된다.
+    if(!S.siteDraft){
+      S.siteDraft = {
+        deadline: s.deadline || "",
+        managerId: s.managerId || "",
+        appliedGuidelines: Object.assign({}, s.appliedGuidelines || {}),
+        appliedMap: Object.assign({}, s.appliedMap || {})
+      };
+    }
+    var draft = S.siteDraft;
+    var draftSite = Object.assign({}, s, { deadline: draft.deadline });
+    var appliedMap = draft.appliedMap || {};
+    var rel = siteRelevantChanges(draftSite);
+    var deadlinePrecision = (draft.deadline||"").length===7 ? "month" : "day";
     var status = s.checklistStatus || "draft";
     var locked = siteChecklistLocked(s);
     var deadlineEditable = !locked && canWrite();
 
-    // 상단 액션 영역: 실행마감일 - 저장 - 승인요청/상태를 한 줄로 간단히 구성
+    // 상단 액션 영역: 저장 - 승인요청/상태를 한 줄로, 저장 버튼은 항상 승인요청(등) 바로 왼쪽에 온다.
+    var saveHtml = canWrite() ? '<button class="btn ghost" id="saveSiteAll" type="button">저장</button>' : "";
     var actionHtml = "";
     if(status === "draft"){
-      if(canWrite()){
-        actionHtml = '<button class="btn" id="btnRequestSiteApproval" type="button">승인요청</button>';
-      }
+      actionHtml = saveHtml + (canWrite() ? '<button class="btn" id="btnRequestSiteApproval" type="button">승인요청</button>' : "");
     } else if(status === "pending_approval"){
-      actionHtml = '<span class="chip pending">승인 대기중</span>'
+      actionHtml = saveHtml + '<span class="chip pending">승인 대기중</span>'
         + (S.isPartLeader ? '<button class="btn" id="btnApproveSite" type="button">승인</button>' : '')
         + ((S.isPartLeader||S.isOwner) ? '<button class="btn ghost" id="btnReopenSite" type="button">다시 열기</button>' : '');
     } else if(status === "approved"){
-      actionHtml = '<span class="chip approved">승인됨</span>'
+      actionHtml = saveHtml + '<span class="chip approved">승인됨</span>'
         + ((S.isPartLeader||S.isOwner) ? '<button class="btn ghost" id="btnReopenSite" type="button">다시 열기</button>' : '');
     }
 
     var managerOptions = '<option value="">미지정</option>' + Object.keys(S.members).map(function(mid){
       return { id: mid, name: (S.members[mid].name || "이름 비공개") };
     }).sort(function(a,b){ return a.name.localeCompare(b.name,"ko"); }).map(function(x){
-      return '<option value="'+esc(x.id)+'"'+(s.managerId===x.id?' selected':'')+'>'+esc(x.name)+'</option>';
+      return '<option value="'+esc(x.id)+'"'+(draft.managerId===x.id?' selected':'')+'>'+esc(x.name)+'</option>';
     }).join("");
 
     var controlCard = '<div class="detail-card site-control-row">'
       +'<label for="s-deadline-edit">실행 마감일</label>'
-      +'<input id="s-deadline-edit" type="date" value="'+esc(s.deadline||"")+'"'+(deadlineEditable?'':' disabled')+'>'
-      +(deadlineEditable ? '<button class="btn ghost" id="saveSiteDeadline" type="button">저장</button>' : '')
+      +'<input id="s-deadline-edit" type="date" value="'+esc(draft.deadline||"")+'"'+(deadlineEditable?'':' disabled')+'>'
       +'<label for="s-manager-edit">담당자</label>'
       +'<select id="s-manager-edit"'+(canWrite()?'':' disabled')+'>'+managerOptions+'</select>'
       +'<span class="row-spacer"></span>'
@@ -2619,22 +2656,22 @@
       guidelineCard = '<div class="detail-card" style="margin-top:12px;margin-bottom:16px;padding:14px 14px;">'
         +'<h3 style="font-family:var(--font-d);font-size:12.5px;margin:0 0 7px;color:var(--ink-soft);">이 현장에 적용된 지침서 시점</h3>'
         +'<div class="gapply-row-wrap">'
-          +'<div class="gapply-line">' + siteGuidelineControlsHtml(s) + '</div>'
-          + (canWrite() ? '<button class="btn" id="stampSiteGuidelineBtn" type="button">현재 지침서 기준으로 한번에 기록</button>' : '')
+          +'<div class="gapply-line">' + siteGuidelineControlsHtml(draft.appliedGuidelines) + '</div>'
+          + (canWrite() ? '<button class="btn" id="stampSiteGuidelineBtn" type="button">현재 지침서 기준으로 채우기</button>' : '')
         +'</div>'
       +'</div>';
     }
 
     var afterCount = rel.after.length;
     var tabsHtml = "";
-    if(s.deadline){
+    if(draft.deadline){
       tabsHtml = '<div class="seg" style="margin-bottom:14px;">'
         +'<button data-site-mode="checklist" class="'+(S.siteViewMode!=="after"?"on":"")+'" type="button">체크리스트 ('+rel.before.length+')</button>'
         +'<button data-site-mode="after" class="'+(S.siteViewMode==="after"?"on":"")+'" type="button">마감 이후 변경'+(afterCount?' ('+afterCount+')':'')+'</button>'
       +'</div>';
     }
 
-    var mode = (s.deadline && S.siteViewMode === "after") ? "after" : "checklist";
+    var mode = (draft.deadline && S.siteViewMode === "after") ? "after" : "checklist";
     var showCheckbox = mode !== "after";
     var activeList = mode === "after" ? rel.after : rel.before;
     var activeStat = statsForList(activeList, appliedMap);
@@ -2643,7 +2680,7 @@
 
     var afterNote = "";
     if(mode === "after"){
-      afterNote = '<div class="after-heading">⚠️ 실행마감('+fmtDate(s.deadline,deadlinePrecision)+') 이후 변경된 기준</div>'
+      afterNote = '<div class="after-heading">⚠️ 실행마감('+fmtDate(draft.deadline,deadlinePrecision)+') 이후 변경된 기준</div>'
         +'<div class="after-desc">'+esc(s.name)+'의 실행에는 자동으로 반영되지 않았어요 — 참고용으로만 확인하세요.</div>';
     }
 
@@ -2659,12 +2696,12 @@
     if(!activeListHtml){
       activeListHtml = mode === "after"
         ? '<div class="empty">실행마감 이후 승인된 기준이 없습니다.</div>'
-        : '<div class="empty">'+(s.deadline ? '실행 마감일 이전 승인된 기준이 없습니다.' : '아직 승인된 실행기준이 없습니다.')+'</div>';
+        : '<div class="empty">'+(draft.deadline ? '실행 마감일 이전 승인된 기준이 없습니다.' : '아직 승인된 실행기준이 없습니다.')+'</div>';
     }
 
     return '<div class="detail">'
       +'<a class="back-link" href="#/sites">&larr; 현장 목록으로</a>'
-      +'<div class="content-head"><div><h1>'+esc(s.name)+'</h1><div class="meta">실행편성 때 반영한 기준을 체크하세요. 체크한 내용은 자동 저장돼요.</div></div></div>'
+      +'<div class="content-head"><div><h1>'+esc(s.name)+'</h1><div class="meta">실행편성 때 반영한 기준을 체크하고, 저장 버튼을 눌러 반영하세요.</div></div></div>'
       +controlCard
       +guidelineCard
       +tabsHtml
@@ -2675,23 +2712,36 @@
   }
 
   function toggleSiteApplied(siteId, changeId, applied){
-    if(!S.db){ toast("저장 기능을 사용할 수 없습니다."); return; }
-    var patch = { appliedMap:{}, updatedById:S.viewerId, updatedByName:S.viewerName||"", updatedAt: nowIso() };
-    patch.appliedMap[changeId] = applied ? { by:S.viewerId, byName:S.viewerName||"", at: nowIso() } : null;
-    S.db.doc("sites/"+siteId).update(patch)
-      .then(function(){ toast(applied ? "반영 완료로 표시했습니다." : "반영 표시를 해제했습니다."); })
-      .catch(function(err){ console.warn(err); toast("저장 중 오류가 발생했습니다."); });
+    // 체크박스는 더 이상 클릭 즉시 DB에 쓰지 않고 초안(S.siteDraft)만 바꾼다 — 통합 저장 버튼을 눌러야 반영된다.
+    // (예전에는 appliedMap을 {[changeId]:...} 하나짜리 객체로 통째로 덮어써서 다른 체크가 지워지는 버그가
+    //  있었는데, 이제는 초안 전체를 기준으로 병합하므로 그 문제도 함께 방지된다.)
+    if(!S.siteDraft) return;
+    var merged = Object.assign({}, S.siteDraft.appliedMap || {});
+    if(applied) merged[changeId] = { by:S.viewerId, byName:S.viewerName||"", at: nowIso() };
+    else delete merged[changeId];
+    S.siteDraft.appliedMap = merged;
+    render();
   }
 
   function requestSiteApproval(id){
     if(!S.db) return;
     var s = S.sites.find(function(x){ return x.id===id; });
     if(!s) return;
-    S.db.doc("sites/"+id).update({
-      checklistStatus:"pending_approval",
-      submittedById:S.viewerId, submittedByName:S.viewerName||"", submittedAt:nowIso()
-    }).then(function(){ toast("파트장에게 승인을 요청했습니다."); })
-      .catch(function(err){ console.warn(err); toast("요청 중 오류가 발생했습니다."); });
+    // 승인요청을 누르면, 저장 버튼을 따로 안 눌렀더라도 화면에 입력해둔 초안(실행마감일/담당자/
+    // 지침서시점/체크리스트)까지 함께 반영해서 한번에 저장한다 — 그래야 입력 내용이 안 날아간다.
+    var draft = S.siteDraft;
+    var data = { checklistStatus:"pending_approval", submittedById:S.viewerId, submittedByName:S.viewerName||"", submittedAt:nowIso() };
+    if(draft){
+      data.deadline = draft.deadline||"";
+      data.managerId = draft.managerId||"";
+      data.managerName = draft.managerId ? ((S.members[draft.managerId] && S.members[draft.managerId].name) || "") : "";
+      data.appliedGuidelines = draft.appliedGuidelines||{};
+      data.appliedMap = draft.appliedMap||{};
+    }
+    S.db.doc("sites/"+id).update(data).then(function(){
+      S.siteDraft = null;
+      toast("파트장에게 승인을 요청했습니다.");
+    }).catch(function(err){ console.warn(err); toast("요청 중 오류가 발생했습니다."); });
   }
   function approveSiteChecklist(id){
     if(!S.db || !S.isPartLeader) return;
@@ -2716,19 +2766,14 @@
     });
     document.querySelectorAll("[data-apply-toggle]").forEach(function(cb){
       cb.addEventListener("change", function(){
-        var applied = cb.checked;
-        var row = cb.closest(".check-row");
-        if(row) row.classList.toggle("applied", applied);
-        toggleSiteApplied(id, cb.getAttribute("data-apply-toggle"), applied);
+        toggleSiteApplied(id, cb.getAttribute("data-apply-toggle"), cb.checked);
       });
     });
-    var saveBtn = document.getElementById("saveSiteDeadline");
-    if(saveBtn) saveBtn.addEventListener("click", function(){
-      var val = document.getElementById("s-deadline-edit").value;
-      if(!S.db){ toast("저장 기능을 사용할 수 없습니다."); return; }
-      S.db.doc("sites/"+id).update({ deadline: val, updatedById:S.viewerId, updatedByName:S.viewerName||"", updatedAt: nowIso() })
-        .then(function(){ toast("저장되었습니다."); })
-        .catch(function(err){ console.warn(err); toast("저장 중 오류가 발생했습니다."); });
+    var deadlineInput = document.getElementById("s-deadline-edit");
+    if(deadlineInput) deadlineInput.addEventListener("change", function(){
+      if(!S.siteDraft) return;
+      S.siteDraft.deadline = deadlineInput.value;
+      render();
     });
     var managerSel = document.getElementById("s-manager-edit");
     if(managerSel) managerSel.addEventListener("change", function(){
@@ -2741,6 +2786,8 @@
         stampSiteGuidelineMajor(id, sel.getAttribute("data-gapply-major"), sel.value);
       });
     });
+    var saveAllBtn = document.getElementById("saveSiteAll");
+    if(saveAllBtn) saveAllBtn.addEventListener("click", function(){ saveSiteAll(id); });
     var reqBtn = document.getElementById("btnRequestSiteApproval");
     if(reqBtn) reqBtn.addEventListener("click", function(){ requestSiteApproval(id); });
     var apBtn = document.getElementById("btnApproveSite");
