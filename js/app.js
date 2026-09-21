@@ -1580,7 +1580,10 @@
   // 엑셀 파일은 (CSV로 변환하지 않고) 원본 그대로 올린 뒤, 미리보기 때 SheetJS로 직접 읽는다.
   function uploadAttachment(file, mime){
     if(!S.sb){ toast("파일 저장 기능을 사용할 수 없습니다."); return; }
-    var path = Date.now()+"_"+Math.random().toString(36).slice(2,8)+"_"+file.name.replace(/[^\w.\-가-힣]/g,"_");
+    // Supabase Storage 키는 한글 등 비-ASCII 문자가 섞여 있으면 "InvalidKey" 오류로 업로드가 거부된다.
+    // 원본 파일명(meta.name, 화면에 보여줄 이름)은 한글 그대로 두되, 실제 저장 경로(path)에서는
+    // 한글을 전부 밑줄로 바꿔서 항상 ASCII만 남긴다 (예전엔 한글을 그대로 허용해서 한글 파일명이면 업로드가 실패했음).
+    var path = Date.now()+"_"+Math.random().toString(36).slice(2,8)+"_"+file.name.replace(/[^\w.\-]/g,"_");
     var meta = { name: file.name, contentType: mime };
     var afterMeta = Promise.resolve();
     if(EXCEL_EXT["."+(file.name.split(".").pop()||"").toLowerCase()] && window.XLSX){
@@ -1998,7 +2001,10 @@
       return extractPdfIndex(buf);
     }).then(function(res){
       extracted = res;
-      var path = "guideline_"+encodeURIComponent(major)+"_"+Date.now()+".pdf";
+      // Supabase Storage 키는 한글 등 비-ASCII 문자를 포함하면 "InvalidKey" 오류로 거부된다.
+      // encodeURIComponent로 미리 퍼센트 인코딩해도, 서버가 URL을 디코딩하는 과정에서 결국
+      // 다시 한글(비-ASCII)로 돌아와 똑같이 거부되므로, 대공종 한글명 대신 항상 영문 id(docId)만 사용한다.
+      var path = "guideline_"+docId+"_"+Date.now()+".pdf";
       if(S.assets){
         return S.assets.upload(file, {type:"application/pdf"}).then(function(r){ return r.url; });
       }

@@ -348,10 +348,21 @@ create policy guideline_revisions_write_lead on public.guideline_revisions
 
 -- ------------------------------------------------------------
 -- 5. Realtime (변경 즉시 반영)
+-- "alter publication ... add table"는 이미 추가된 테이블에 다시 실행하면 에러가 나서
+-- (42710: relation is already member of publication) 스크립트를 다시 실행할 때 실패의 원인이 됐다.
+-- 이미 추가돼 있는지 먼저 확인하고 없을 때만 추가하도록 바꿔서, 몇 번을 다시 실행해도 안전하게 만든다.
 -- ------------------------------------------------------------
-alter publication supabase_realtime add table public.changes;
-alter publication supabase_realtime add table public.sites;
-alter publication supabase_realtime add table public.profiles;
-alter publication supabase_realtime add table public.guideline_docs;
-alter publication supabase_realtime add table public.guideline_chunks;
-alter publication supabase_realtime add table public.guideline_revisions;
+do $$
+declare
+  t text;
+begin
+  foreach t in array array['changes','sites','profiles','guideline_docs','guideline_chunks','guideline_revisions']
+  loop
+    if not exists (
+      select 1 from pg_publication_tables
+      where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t
+    ) then
+      execute format('alter publication supabase_realtime add table public.%I', t);
+    end if;
+  end loop;
+end $$;
