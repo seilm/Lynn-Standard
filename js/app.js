@@ -460,11 +460,35 @@
     target.addEventListener("mousemove", function(e){
       var lens = getMagLens();
       var rect = target.getBoundingClientRect();
-      var xPct = (e.clientX-rect.left)/rect.width;
-      var yPct = (e.clientY-rect.top)/rect.height;
+      // target이 <img>이고 CSS object-fit:contain으로 표시 중이면, 박스(rect) 전체가 아니라
+      // 원본 비율에 맞게 레터박싱된 가운데 일부만 실제로 이미지가 그려지는 영역이다. 이걸 무시하고
+      // rect 전체를 기준으로 확대 배율을 계산하면, 박스와 이미지의 가로세로 비율이 다를 때
+      // 돋보기 안의 이미지가 옆으로(또는 위아래로) 늘어나 보인다. naturalWidth/Height를 이용해
+      // 실제로 그려지는 영역(contentRect)을 다시 계산해서 그 기준으로 확대한다.
+      var contentRect = rect;
+      if(target.tagName === "IMG" && target.naturalWidth && target.naturalHeight){
+        var boxRatio = rect.width / rect.height;
+        var imgRatio = target.naturalWidth / target.naturalHeight;
+        var cw, ch, cx, cy;
+        if(imgRatio > boxRatio){
+          cw = rect.width; ch = rect.width / imgRatio;
+          cx = rect.left; cy = rect.top + (rect.height - ch)/2;
+        } else {
+          ch = rect.height; cw = rect.height * imgRatio;
+          cy = rect.top; cx = rect.left + (rect.width - cw)/2;
+        }
+        contentRect = { left:cx, top:cy, width:cw, height:ch };
+      }
+      var xPct = (e.clientX-contentRect.left)/contentRect.width;
+      var yPct = (e.clientY-contentRect.top)/contentRect.height;
+      if(xPct < 0 || xPct > 1 || yPct < 0 || yPct > 1){
+        // 레터박스(여백) 위에 마우스가 있으면 돋보기를 띄우지 않는다.
+        lens.style.display = "none";
+        return;
+      }
       // 표는 보통 가로로 길게(품명~규격 등) 훑어보게 되므로, 돋보기도 가로로 긴 직사각형으로.
       var lensW = 500, lensH = 200; var zoom = zoomOverride || 1.2;
-      var bgW = rect.width*zoom, bgH = rect.height*zoom;
+      var bgW = contentRect.width*zoom, bgH = contentRect.height*zoom;
       lens.style.left = (e.clientX-lensW/2)+"px";
       lens.style.top = (e.clientY-lensH/2)+"px";
       lens.style.backgroundImage = "url('"+imgSrc+"')";
@@ -1236,6 +1260,19 @@
   function viewItem(id){
     var c = S.changes.find(function(x){ return x.id===id; });
     if(!c) return '<div class="detail"><div class="empty">항목을 찾을 수 없습니다.</div></div>';
+
+    // 카드 양옆 이전/다음 화살표: 지금 보고 있는 목록(현재 필터)과 같은 순서로 옆 항목을 찾는다.
+    // 승인대기 목록처럼 현재 필터에 안 걸리는 곳에서 들어온 경우엔 전체 이력 순서로라도 동작하게 한다.
+    var navList = filteredScoped().slice().sort(byDateDesc);
+    var navIdx = navList.findIndex(function(x){ return x.id === id; });
+    if(navIdx === -1){
+      navList = S.changes.slice().sort(byDateDesc);
+      navIdx = navList.findIndex(function(x){ return x.id === id; });
+    }
+    var navPrev = navIdx > 0 ? navList[navIdx-1] : null;
+    var navNext = (navIdx > -1 && navIdx < navList.length-1) ? navList[navIdx+1] : null;
+    var navArrowsHtml = (navPrev ? '<button class="detail-nav-arrow left" data-detail-nav="'+navPrev.id+'" type="button" aria-label="이전 이력">&lsaquo;</button>' : '')
+      + (navNext ? '<button class="detail-nav-arrow right" data-detail-nav="'+navNext.id+'" type="button" aria-label="다음 이력">&rsaquo;</button>' : '');
     var precision = (c.changeDate||"").length===7 ? "month" : "day";
     if(S.attachItemId !== id){ S.attachItemId = id; S.attachIndex = 0; }
 
@@ -1316,6 +1353,7 @@
     }
 
     return '<div class="detail">'
+      +navArrowsHtml
       +'<a class="back-link" href="'+esc(S.lastListHash)+'">&larr; 목록으로</a>'
       +'<div class="detail-card">'
         +'<div class="detail-crumb">'+esc(c.major)+' / '+esc(c.minor)+'</div>'
@@ -1336,6 +1374,9 @@
     var c = S.changes.find(function(x){ return x.id===id; });
     if(!c) return;
     resolveNames();
+    document.querySelectorAll("[data-detail-nav]").forEach(function(el){
+      el.addEventListener("click", function(){ location.hash = "#/item/"+el.getAttribute("data-detail-nav"); });
+    });
     var attachments = c.attachments || [];
     var curAtt = attachments[S.attachIndex];
     var pdfHost = document.getElementById("attPdfHost");
