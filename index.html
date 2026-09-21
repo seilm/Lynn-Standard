@@ -5,13 +5,22 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Lynn Standard</title>
 <meta name="description" content="건축예산팀 실행파트 · 실행 편성 기준 변경 이력 관리">
+<link rel="icon" type="image/png" sizes="512x512" href="img/favicon-512.png">
+<link rel="icon" type="image/png" sizes="192x192" href="img/favicon-192.png">
+<link rel="icon" type="image/png" sizes="32x32" href="img/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="img/favicon-16.png">
+<link rel="shortcut icon" href="img/favicon.ico">
+<link rel="apple-touch-icon" sizes="180x180" href="img/favicon-180.png">
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 <div id="app"><div class="loading">불러오는 중…</div></div>
 
-<!-- Supabase client (DB + Auth + Storage) -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<!-- Supabase client (DB + Auth + Storage)
+     — 새 publishable/secret 키 체계와의 호환성을 위해 최신 안정 버전을 사용합니다.
+       (예전 2.45.4 버전은 새로운 sb_publishable_ 형식 키를 쓸 때 인증 컨텍스트가 제대로 전달되지 않아
+       조회(select)는 되는데 등록/수정/삭제 같은 로그인 필요한 쓰기 작업만 조용히 실패하는 사례가 보고되었습니다.) -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.9/dist/umd/supabase.js"></script>
 <!-- PDF 첨부파일 미리보기 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <!-- Excel(.xlsx/.xls) 첨부 업로드 시 시트 개수만 가볍게 확인하는 용도 -->

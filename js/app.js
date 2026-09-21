@@ -35,7 +35,7 @@
   /* ============ state ============ */
   var S = {
     sb:null, session:null,
-    viewerId:null, isOwner:false, isPartLeader:false, isTeamMember:false, canManageRoster:false,
+    viewerId:null, isOwner:false, isPartLeader:false, isTeamMember:false, canManageRoster:false, viewApproved:false, membersReady:false,
     ready:false,
     changes:[], members:{}, sites:[],
     filters:{ major:null, minor:null, status:"approved", q:"" },
@@ -462,7 +462,7 @@
       var xPct = (e.clientX-rect.left)/rect.width;
       var yPct = (e.clientY-rect.top)/rect.height;
       // 표는 보통 가로로 길게(품명~규격 등) 훑어보게 되므로, 돋보기도 가로로 긴 직사각형으로.
-      var lensW = 500, lensH = 200; var zoom = zoomOverride || 2.4;
+      var lensW = 500, lensH = 200; var zoom = zoomOverride || 1.2;
       var bgW = rect.width*zoom, bgH = rect.height*zoom;
       lens.style.left = (e.clientX-lensW/2)+"px";
       lens.style.top = (e.clientY-lensH/2)+"px";
@@ -505,7 +505,7 @@
       createdAt:"created_at"
     },
     members: {
-      name:"name", displayName:"display_name", role:"role", isAdmin:"is_admin",
+      name:"name", displayName:"display_name", role:"role", isAdmin:"is_admin", viewApproved:"view_approved",
       firstSeenAt:"first_seen_at", lastSeenAt:"last_seen_at",
       addedBy:"added_by", addedAt:"added_at", createdAt:"created_at"
     },
@@ -666,7 +666,7 @@
       if(event === "SIGNED_OUT"){
         teardownSubscriptions();
         S.session = null; S.viewerId = null; S.viewerName = null;
-        S.isPartLeader=false; S.isTeamMember=false; S.canManageRoster=false; S.isOwner=false;
+        S.isPartLeader=false; S.isTeamMember=false; S.canManageRoster=false; S.isOwner=false; S.viewApproved=false; S.membersReady=false;
         S.changes=[]; S.members={}; S.sites=[]; S.guidelineDocs={}; S.guidelineRevisions={};
         render();
         return;
@@ -719,6 +719,10 @@
       S.isTeamMember = !!(m[S.viewerId] && m[S.viewerId].role === "팀원");
       S.isOwner = !!(m[S.viewerId] && m[S.viewerId].isAdmin);
       S.canManageRoster = S.isOwner || S.isPartLeader;
+      // 모든 기준이 대외비라 조회자는 팀원/파트장의 승인(view_approved)을 받아야 내용을 볼 수 있다.
+      // 팀원·파트장·관리자는 역할 자체로 항상 조회 가능.
+      S.viewApproved = !!(m[S.viewerId] && (S.isPartLeader || S.isTeamMember || S.isOwner || m[S.viewerId].viewApproved));
+      S.membersReady = true;
       render();
     }, function(err){ console.warn("members sub error", err); });
     S.unsubs.push(unsub);
@@ -782,6 +786,10 @@
     if(S.noHost){ app.innerHTML = renderConfigGate(); return; }
     if(!S.session){ app.innerHTML = renderAuthPage(); wireAuthPage(); return; }
     if(S.showWelcome){ app.innerHTML = renderWelcomeGate(); wireWelcomeGate(); return; }
+    // 모든 기준이 대외비라, 조회자는 팀원/파트장이 승인해줄 때까지 내용을 볼 수 없다.
+    if(S.membersReady && !S.viewApproved){
+      app.innerHTML = renderPendingViewGate(); wirePendingViewGate(); return;
+    }
 
     var parts = route();
     var listLikeRoutes = ["month","approvals","sites"];
@@ -833,7 +841,6 @@
     return '<div class="auth-gate">'
       +'<div class="auth-gate-card">'
         +authGateLogo()
-        +'<h1>Lynn Standard</h1>'
         +'<p style="margin-bottom:18px;">건축예산팀 실행파트 · 실행 편성 기준 변경 이력 관리</p>'
         +'<div class="auth-tabs">'
           +'<button type="button" data-auth-tab="login" class="'+(AUTH_TAB==="login"?"on":"")+'">로그인</button>'
@@ -903,6 +910,23 @@
       S.showWelcome = false;
       render();
     });
+  }
+  function renderPendingViewGate(){
+    var name = S.viewerName || "";
+    return '<div class="auth-gate">'
+      +'<div class="auth-gate-card">'
+        +authGateLogo()
+        +'<h1>'+esc(name)+'님, 승인 대기 중이에요</h1>'
+        +'<p>실행 편성 기준 변경 이력은 대외비라, 팀원 또는 파트장의 승인을 받은 뒤에 조회할 수 있어요. 팀원 또는 파트장에게 승인을 요청해주세요.</p>'
+        +'<div class="welcome-role-note">설정 페이지 &gt; 팀 구성에서 팀원 또는 파트장이 "승인" 버튼을 눌러주면 바로 내용을 볼 수 있어요.</div>'
+        +'<button class="btn ghost" id="btnPendingLogout" type="button" style="width:100%;margin-top:16px;">로그아웃</button>'
+      +'</div>'
+    +'</div>';
+  }
+  function wirePendingViewGate(){
+    var btn = document.getElementById("btnPendingLogout");
+    if(!btn) return;
+    btn.addEventListener("click", function(){ S.sb.auth.signOut(); });
   }
 
   /* ============ shell (topbar + sidebar) ============ */
@@ -1081,12 +1105,17 @@
 
   /* ============ list / home / month ============ */
   function filteredScoped(monthYm){
+    // 상단 검색창에 검색어가 있으면, 지금 어떤 공종 페이지에 있든 전체 범위에서 찾도록
+    // 대/중분류 스코프 필터는 건너뛴다 (검색어가 없을 때만 사이드바에서 고른 공종으로 좁힌다).
+    var searching = !!S.filters.q;
     return S.changes.filter(function(c){
-      if(S.filters.major && c.major !== S.filters.major) return false;
-      if(S.filters.minor && c.minor !== S.filters.minor) return false;
+      if(!searching){
+        if(S.filters.major && c.major !== S.filters.major) return false;
+        if(S.filters.minor && c.minor !== S.filters.minor) return false;
+      }
       if(S.filters.status !== "all" && c.status !== S.filters.status) return false;
       if(monthYm && (c.changeDate||"").slice(0,7) !== monthYm) return false;
-      if(S.filters.q){
+      if(searching){
         var q = S.filters.q.toLowerCase().trim().replace(/^#/, "");
         var hay = [c.title,c.summary,c.reason,c.major,c.minor,(c.tags||[]).join(" ")].join(" ").toLowerCase();
         if(hay.indexOf(q) === -1) return false;
@@ -1148,8 +1177,10 @@
     if(items.length === 0){
       return '<div class="empty">해당 조건의 변경 이력이 없습니다.'+(S.filters.status==="approved" && !monthYm ? ' 최근 1년간 이 공종은 기준 변경이 없었어요.' : '')+'</div>';
     }
-    // group by major then minor for the unfiltered/home browse; otherwise flat sorted list
-    if(!S.filters.minor && !monthYm){
+    var searching = !!S.filters.q;
+    // group by major then minor for the unfiltered/home browse; otherwise flat sorted list.
+    // 검색 중일 때는 결과가 여러 공종에 걸쳐 나올 수 있으므로 공종별로 묶지 않고 평평한 목록 + 공종 칩으로 보여준다.
+    if(!S.filters.minor && !monthYm && !searching){
       var byMajor = {};
       items.forEach(function(c){ (byMajor[c.major]=byMajor[c.major]||[]).push(c); });
       var out = "";
@@ -1165,7 +1196,7 @@
       });
       return out || '<div class="empty">해당 조건의 변경 이력이 없습니다.</div>';
     }
-    var hideCat = !!S.filters.minor;
+    var hideCat = !!S.filters.minor && !searching;
     return '<div class="change-list">'+items.slice().sort(byDateDesc).map(function(c){ return rowHtml(c, hideCat); }).join("")+'</div>';
   }
 
@@ -1691,7 +1722,9 @@
     var items = S.changes.filter(function(c){ return c.status==="pending"; });
     var head = '<div class="content-head"><div><h1>승인 대기</h1><div class="meta">'+(S.isPartLeader?"파트장 승인이 필요한 항목입니다.":"파트장만 승인·반려할 수 있어요.")+'</div></div></div>';
     if(!items.length) return head + '<div class="empty">현재 승인 대기 중인 항목이 없습니다.</div>';
-    return head + '<div class="change-list">'+items.slice().sort(byDateDesc).map(rowHtml).join("")+'</div>';
+    // .map(rowHtml)로 바로 넘기면 Array.map이 두 번째 인자로 배열 인덱스를 넘겨서 그게 hideCat으로 읽혀
+    // (0번째=false→칩 표시, 1번째 이후=truthy→칩 숨김) 목록에서 공종 칩이 첫 항목에만 보이는 버그가 있었다.
+    return head + '<div class="change-list">'+items.slice().sort(byDateDesc).map(function(c){ return rowHtml(c); }).join("")+'</div>';
   }
 
   /* ============ settings ============ */
@@ -1700,9 +1733,22 @@
     var rows = ids.map(function(id){
       var m = S.members[id];
       var isMe = id === S.viewerId;
+      var isViewer = m.role!=="팀원" && m.role!=="파트장" && !m.isAdmin;
       var seenLabel = m.firstSeenAt ? (fmtDate(m.firstSeenAt.slice(0,10),"day")+' 첫 방문') : '접속 대기중';
+      // 대외비 조회 승인: 조회자(role 미지정)만 해당, 팀원·파트장은 역할 자체로 항상 조회 가능하므로 표시하지 않는다.
+      var viewChip = "";
+      if(isViewer){
+        if(m.viewApproved){
+          viewChip = '<span class="chip approved" title="변경 이력을 조회할 수 있어요.">조회 가능</span>';
+        } else if(canWrite() && !isMe){
+          viewChip = '<button class="btn ghost" type="button" data-approve-view="'+esc(id)+'" style="padding:4px 10px;font-size:11px;" title="이 사람이 변경 이력을 조회할 수 있게 승인해요.">조회 승인</button>';
+        } else {
+          viewChip = '<span class="chip pending" title="아직 팀원/파트장의 조회 승인을 받지 못했어요.">승인 대기</span>';
+        }
+      }
       return '<div class="roster-row"><span class="rname">'+(isMe?'<span style="color:var(--accent);">(나) </span>':'')+'<span class="uname" data-uid="'+esc(id)+'">…</span></span>'
         +'<span class="rmeta mono">'+seenLabel+'</span>'
+        +viewChip
         +(S.canManageRoster && !isMe ?
           '<div class="seg" data-role-seg="'+esc(id)+'">'
             +'<button data-role="조회자" class="'+(m.role!=="팀원"&&m.role!=="파트장"?"on":"")+'">조회자</button>'
@@ -1721,11 +1767,11 @@
       : "";
 
     return '<div class="detail">'
-      +'<div class="content-head"><div><h1>설정</h1><div class="meta">팀 구성원 역할을 관리합니다. 처음 접속한 사람은 조회자로 등록되고, 파트장/관리자가 팀원·파트장으로 지정해야 신규등록·승인 권한이 생겨요.</div></div></div>'
+      +'<div class="content-head"><div><h1>설정</h1><div class="meta">팀 구성원 역할을 관리합니다. 처음 접속한 사람은 조회자로 등록되고, 파트장/관리자가 팀원·파트장으로 지정해야 신규등록·승인 권한이 생겨요. 모든 기준이 대외비라, 조회자는 팀원 또는 파트장이 "조회 승인"을 눌러줘야 내용을 볼 수 있어요.</div></div></div>'
       +'<div class="detail-card">'
         +'<h3 style="font-family:var(--font-d);font-size:14px;margin:0 0 10px;">팀 구성 ('+ids.length+'명)</h3>'
         +(rows || '<div class="empty">아직 등록된 팀원이 없습니다.</div>')
-        +'<div style="margin-top:16px;font-size:11.5px;color:var(--ink-faint);line-height:1.6;">역할 변경은 파트장 또는 관리자만 할 수 있어요.</div>'
+        +'<div style="margin-top:16px;font-size:11.5px;color:var(--ink-faint);line-height:1.6;">역할 변경은 파트장 또는 관리자만, 조회 승인은 팀원 또는 파트장이 할 수 있어요.</div>'
       +'</div>'
       + guidelineDocsSettingsHtml()
       + addNote
@@ -1789,6 +1835,13 @@
     return S.db.doc("members/"+id).update({ role: role });
   }
 
+  function approveViewer(id){
+    if(!S.db) return;
+    S.db.doc("members/"+id).update({ viewApproved: true })
+      .then(function(){ toast("조회를 승인했습니다."); })
+      .catch(function(err){ console.warn(err); toast("승인 처리 중 오류가 발생했습니다."); });
+  }
+
   function deleteGuidelineRevision(revId){
     if(!S.db){ toast("저장 기능을 사용할 수 없습니다."); return; }
     if(!confirm("이 지침서 변경 이력을 삭제할까요? 되돌릴 수 없어요.")) return;
@@ -1799,6 +1852,9 @@
 
   function wireSettings(){
     resolveNames();
+    document.querySelectorAll("[data-approve-view]").forEach(function(btn){
+      btn.addEventListener("click", function(){ approveViewer(btn.getAttribute("data-approve-view")); });
+    });
     if(!S.canManageRoster) return;
     document.querySelectorAll("[data-role-seg]").forEach(function(seg){
       var id = seg.getAttribute("data-role-seg");
@@ -2160,9 +2216,9 @@
         var shown = cropCanvasToContent(canvas);
         container.innerHTML = "";
         container.appendChild(shown);
-        // 잘라낸 뒤에도 세부 내용을 더 자세히 보고 싶을 수 있어 돋보기를 다시 붙이되,
-        // 확대 비율은 낮춰서(1.6배) 첨부파일 돋보기(2.4배)보다 더 넓은 범위가 보이게 한다.
-        try{ attachMagnifier(shown, shown.toDataURL(), 1.6); }catch(e){}
+        // 잘라낸 뒤에도 세부 내용을 더 자세히 보고 싶을 수 있어 돋보기를 다시 붙인다
+        // (첨부파일 돋보기와 동일하게 1.5배 — attachMagnifier 기본값 사용).
+        try{ attachMagnifier(shown, shown.toDataURL()); }catch(e){}
       });
     }).catch(function(err){
       console.warn("guideline pdf render failed", err);

@@ -82,7 +82,7 @@ img{ max-width:100%; }
   .brand{ display:flex; align-items:baseline; gap:6px; margin-right:6px; cursor:pointer; flex-shrink:0; }
   .brand-logo{ display:inline-flex; line-height:0; flex-shrink:0; }
   .brand-logo img{ height:23px; width:auto; display:block; transform:translateY(24.4%); filter:brightness(0) opacity(.88); image-rendering:-webkit-optimize-contrast; }
-  .brand .mark{ font-family:'Poppins',var(--font-d); font-weight:400; font-size:18px; letter-spacing:0.01em; color:var(--header-accent); line-height:1; }
+  .brand .mark{ font-family:'Poppins',var(--font-d); font-weight:700; font-size:18px; letter-spacing:0.01em; color:var(--header-accent); line-height:1; }
   .brand .sub{ font-family:var(--font-m); font-size:10.5px; color:var(--header-ink-soft); letter-spacing:.04em; margin-left:4px; position:relative; top:-1.5px; }
   .search-wrap{ flex:1 1 200px; min-width:140px; max-width:420px; position:relative; }
   .search-wrap input{
@@ -123,11 +123,10 @@ img{ max-width:100%; }
   .btn.danger{ background:transparent; color:var(--bad); border-color:var(--bad-line); box-shadow:none; }
   .btn.danger:hover{ background:var(--bad-soft); filter:none; box-shadow:none; }
   .btn.accent{
-    background:linear-gradient(180deg, #f1ad84 0%, var(--header-accent) 55%, #ab4c13 100%);
-    border-color:rgba(0,0,0,.06); color:#2b1503;
-    box-shadow:0 1px 2px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.35);
+    background:var(--header-accent); border:none; color:#fff;
+    box-shadow:none;
   }
-  .btn.accent:hover{ filter:brightness(1.05); box-shadow:0 3px 10px rgba(0,0,0,.32), inset 0 1px 0 rgba(255,255,255,.4); }
+  .btn.accent:hover{ filter:brightness(1.05); box-shadow:none; }
   .btn:disabled{ opacity:.45; cursor:not-allowed; filter:none!important; box-shadow:none!important; transform:none!important; }
   .icon-btn{
     width:34px; height:34px; border-radius:999px; border:1px solid var(--line); background:var(--surface);
@@ -434,7 +433,7 @@ img{ max-width:100%; }
 
   /* ---- magnifier ---- */
   .mag-lens{
-    position:fixed; width:500px; height:200px; border-radius:18px; border:3px solid var(--accent);
+    position:fixed; width:500px; height:200px; border-radius:18px; border:2px solid var(--accent);
     box-shadow:0 6px 20px rgba(0,0,0,.35); pointer-events:none; z-index:200; display:none;
     background-repeat:no-repeat; background-color:#fff;
   }
@@ -464,17 +463,18 @@ img{ max-width:100%; }
   /* ---- auth gate / welcome ---- */
   .auth-gate{
     min-height:100vh; display:flex; align-items:center; justify-content:center; padding:32px 16px;
-    background:radial-gradient(circle at 30% 20%, #45474d 0%, #242f3f 45%, #26282c 100%);
+    background:#faf5e9;
   }
   .auth-gate-card{
     background:var(--surface); border-radius:20px; padding:34px 30px; max-width:380px; width:100%;
-    box-shadow:0 24px 60px rgba(5,10,20,.45); text-align:center;
+    box-shadow:0 10px 34px rgba(60,50,30,.10); text-align:center;
   }
   .auth-gate-logo{ display:flex; align-items:center; justify-content:center; gap:7px; margin-bottom:22px; }
   .auth-gate-logo img{ height:26px; width:auto; display:block; filter:brightness(0); }
   .auth-gate-logo span{ font-family:'Poppins',var(--font-d); font-weight:700; font-size:21px; color:var(--header-accent); letter-spacing:.005em; }
   .auth-gate-card h1{ font-family:var(--font-d); font-size:18px; font-weight:700; margin:0 0 10px; color:var(--ink); letter-spacing:-0.01em; }
   .auth-gate-card p{ font-size:13px; color:var(--ink-soft); line-height:1.65; margin:0; }
+  .auth-gate-card .btn.accent{ border-radius:12px; padding:11px 16px; font-size:13.5px; }
   .welcome-role-note{
     font-size:12px; color:var(--ink-soft); background:var(--accent-soft); border:1px solid var(--info-line);
     border-radius:10px; padding:10px 12px; margin:16px 0; line-height:1.55; text-align:left;
@@ -592,6 +592,7 @@ img{ max-width:100%; }
     .gapply-row-wrap{ align-items:flex-start; }
     .gapply-row-wrap .gapply-line{ flex-basis:100%; }
   }
+  #btnRequestSiteApproval, #stampSiteGuidelineBtn{ border:none; font-weight:600; }
 
   /* ---- collapsible form sections ---- */
   .f-details{ border:1px solid var(--line); border-radius:var(--radius); margin-bottom:14px; overflow:hidden; }

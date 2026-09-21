@@ -18,6 +18,7 @@ create table if not exists public.profiles (
   display_name text,               -- 상단에 표시할 이름을 직접 지정 (예: "김세림 대리"). 비워두면 name 사용
   role text not null default '조회자' check (role in ('조회자','팀원','파트장')),
   is_admin boolean not null default false,   -- 최종 관리자(계정 잠김 대비 비상용). 앱에서는 노출 안 함, SQL로만 지정
+  view_approved boolean not null default false,  -- 조회자가 실제 내용(변경 이력/지침서)을 볼 수 있는지. 팀원·파트장은 role 자체로 항상 볼 수 있어 이 값과 무관.
   first_seen_at timestamptz not null default now(),
   last_seen_at timestamptz not null default now(),
   added_by uuid references auth.users(id),
@@ -76,6 +77,17 @@ security definer set search_path = public
 stable
 as $$
   select coalesce((select role = '파트장' or is_admin from public.profiles where id = auth.uid()), false);
+$$;
+
+-- 모든 기준이 대외비라, 조회자(기본 역할)는 팀원·파트장 중 누군가 승인(view_approved=true)해줘야
+-- 실제 변경 이력/지침서 내용을 볼 수 있다. 팀원·파트장은 역할 자체로 항상 조회 가능.
+create or replace function public.can_view()
+returns boolean
+language sql
+security definer set search_path = public
+stable
+as $$
+  select coalesce((select role in ('팀원','파트장') or is_admin or view_approved from public.profiles where id = auth.uid()), false);
 $$;
 
 -- ------------------------------------------------------------
@@ -147,6 +159,9 @@ create index if not exists sites_name_idx on public.sites (name);
 alter table public.sites add column if not exists applied_guidelines jsonb not null default '{}';
 alter table public.sites add column if not exists manager_id uuid references auth.users(id);
 alter table public.sites add column if not exists manager_name text;
+
+-- 이미 profiles 테이블이 있던 배포본을 위해 view_approved 컬럼도 별도로 추가해준다.
+alter table public.profiles add column if not exists view_approved boolean not null default false;
 
 -- ------------------------------------------------------------
 -- 3-1. guideline_docs — 실행지침서 PDF (공통가설/건축/현장관리비, 각 1건)
@@ -228,10 +243,11 @@ create policy profiles_select_all on public.profiles
   for select using (true);
 
 -- 본인은 자기 행(이름/표시이름)을, 파트장·관리자는 아무 행이나(역할 변경) 수정 가능.
--- role/is_admin을 아래 트리거로 한 번 더 보호해서, 본인 스스로 역할을 올리는 걸 막는다.
+-- 팀원도 다른 사람 행을 수정할 수 있게 열어두는 건 조회자 승인(view_approved)을 팀원도 할 수 있게 하기 위함이고,
+-- role/is_admin/view_approved는 아래 트리거로 한 번 더 보호해서 팀원이 역할까지 바꾸지 못하게 막는다.
 drop policy if exists profiles_update on public.profiles;
 create policy profiles_update on public.profiles
-  for update using (auth.uid() = id or public.can_manage_roster());
+  for update using (auth.uid() = id or public.can_write());
 
 drop policy if exists profiles_insert_self on public.profiles;
 create policy profiles_insert_self on public.profiles
@@ -240,6 +256,7 @@ create policy profiles_insert_self on public.profiles
 -- role/is_admin은 파트장·관리자만 바꿀 수 있도록 트리거로 강제(自기 자신의 role 셀프 승격 방지)
 -- 추가로, 본인이 파트장인 경우 실수로든 고의로든 스스로를 파트장에서 내릴 수 없도록 막는다
 -- (다른 파트장/관리자가 그 사람의 role을 바꾸는 것은 계속 가능).
+-- view_approved(조회 승인)는 팀원도 바꿀 수 있어야 하므로 can_write()(팀원·파트장) 기준으로 별도 보호한다.
 create or replace function public.protect_profile_role()
 returns trigger
 language plpgsql
@@ -252,6 +269,9 @@ begin
   elsif auth.uid() = old.id and old.role = '파트장' and new.role <> '파트장' then
     new.role := old.role;
   end if;
+  if not public.can_write() then
+    new.view_approved := old.view_approved;
+  end if;
   return new;
 end;
 $$;
@@ -261,10 +281,10 @@ create trigger trg_protect_profile_role
   before update on public.profiles
   for each row execute procedure public.protect_profile_role();
 
--- changes: 조회는 전체 공개(비로그인 포함), 등록/수정/삭제는 팀원·파트장만
+-- changes: 조회는 팀원·파트장이거나 승인받은 조회자만(대외비), 등록/수정/삭제는 팀원·파트장만
 drop policy if exists changes_select_public on public.changes;
 create policy changes_select_public on public.changes
-  for select using (true);
+  for select using (public.can_view());
 
 drop policy if exists changes_insert_writer on public.changes;
 create policy changes_insert_writer on public.changes
@@ -278,10 +298,10 @@ drop policy if exists changes_delete_lead on public.changes;
 create policy changes_delete_lead on public.changes
   for delete using (public.can_manage_roster());
 
--- sites: 조회는 전체 공개, 등록/수정은 팀원·파트장, 삭제는 파트장
+-- sites: 조회는 팀원·파트장이거나 승인받은 조회자만, 등록/수정은 팀원·파트장, 삭제는 파트장
 drop policy if exists sites_select_public on public.sites;
 create policy sites_select_public on public.sites
-  for select using (true);
+  for select using (public.can_view());
 
 drop policy if exists sites_insert_writer on public.sites;
 create policy sites_insert_writer on public.sites
@@ -295,29 +315,29 @@ drop policy if exists sites_delete_lead on public.sites;
 create policy sites_delete_lead on public.sites
   for delete using (public.can_manage_roster());
 
--- guideline_docs: 조회는 전체 공개, 업로드/수정/삭제는 파트장·관리자만
+-- guideline_docs: 조회는 팀원·파트장이거나 승인받은 조회자만, 업로드/수정/삭제는 파트장·관리자만
 -- (반기에 한 번 교체되는 기준문서라, 아무 팀원이나 바꾸기보다는 파트장이 관리하도록 제한한다)
 drop policy if exists guideline_docs_select_public on public.guideline_docs;
 create policy guideline_docs_select_public on public.guideline_docs
-  for select using (true);
+  for select using (public.can_view());
 
 drop policy if exists guideline_docs_write_lead on public.guideline_docs;
 create policy guideline_docs_write_lead on public.guideline_docs
   for all using (public.can_manage_roster()) with check (public.can_manage_roster());
 
--- guideline_chunks: 조회는 전체 공개, 업로드/수정/삭제는 파트장·관리자만
+-- guideline_chunks: 조회는 팀원·파트장이거나 승인받은 조회자만, 업로드/수정/삭제는 파트장·관리자만
 drop policy if exists guideline_chunks_select_public on public.guideline_chunks;
 create policy guideline_chunks_select_public on public.guideline_chunks
-  for select using (true);
+  for select using (public.can_view());
 
 drop policy if exists guideline_chunks_write_lead on public.guideline_chunks;
 create policy guideline_chunks_write_lead on public.guideline_chunks
   for all using (public.can_manage_roster()) with check (public.can_manage_roster());
 
--- guideline_revisions: 조회는 전체 공개, 기록은 파트장·관리자만 (업로드할 때 자동으로 남겨진다)
+-- guideline_revisions: 조회는 팀원·파트장이거나 승인받은 조회자만, 기록은 파트장·관리자만 (업로드할 때 자동으로 남겨진다)
 drop policy if exists guideline_revisions_select_public on public.guideline_revisions;
 create policy guideline_revisions_select_public on public.guideline_revisions
-  for select using (true);
+  for select using (public.can_view());
 
 drop policy if exists guideline_revisions_write_lead on public.guideline_revisions;
 create policy guideline_revisions_write_lead on public.guideline_revisions
