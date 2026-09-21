@@ -105,6 +105,7 @@ create table if not exists public.changes (
   minor text not null,
   title text not null,
   summary text not null,
+  department text not null default '건축예산팀',  -- 유관부서 (건축예산팀/건축기획팀/품질기술팀/설계팀/상품기획팀/인테리어팀/외주관리팀/자재구매팀/스마트기술팀/안전보건실)
   change_date text not null,           -- "YYYY-MM-DD" 또는 "YYYY-MM" (월 단위 정밀도 지원)
   effective_date text,
   effective_scope text default '전현장',
@@ -127,9 +128,13 @@ create table if not exists public.changes (
   created_at timestamptz not null default now()
 );
 
+-- 이미 만들어진 테이블에도 department 컬럼이 추가되도록 (기존 배포 마이그레이션용).
+alter table public.changes add column if not exists department text not null default '건축예산팀';
+
 create index if not exists changes_change_date_idx on public.changes (change_date desc);
 create index if not exists changes_status_idx on public.changes (status);
 create index if not exists changes_major_minor_idx on public.changes (major, minor);
+create index if not exists changes_department_idx on public.changes (department);
 
 -- ------------------------------------------------------------
 -- 3. sites — 현장 (실행 마감/체크리스트)

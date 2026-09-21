@@ -5,7 +5,7 @@
     try{ window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"; }catch(e){}
   }
 
-  var LYNN_LOGO = "data:image/png;base64,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";
+  var LYNN_LOGO_SVG = '<svg role="img" aria-label="Lynn" viewBox="0 0 248.27 117.91" fill="currentColor" xmlns="http://www.w3.org/2000/svg"> <path d="M 52.0273 75.3555 L 15.0508 75.3555 L 15.0508 0.0000 L 0.0000 0.0000 L 0.0000 89.3164 L 56.7656 89.3164 Z M 52.0273 75.3555"/> <path d="M 163.7891 28.4062 C 154.1797 28.4062 145.7422 32.8086 140.8672 36.4531 L 140.8672 28.1211 L 126.7656 28.1211 L 126.7656 89.3164 L 140.8672 89.3164 L 140.8672 39.5859 L 164.2500 39.5859 C 164.5586 39.5938 165.7109 39.7227 165.7109 41.2773 L 165.7109 89.3164 L 179.8945 89.3164 L 179.8945 41.3047 C 179.8945 32.8008 174.3086 28.4062 163.7891 28.4062"/> <path d="M 232.1602 28.4062 C 222.5508 28.4062 214.1211 32.8086 209.2461 36.4531 L 209.2461 28.1211 L 195.1445 28.1211 L 195.1445 89.3164 L 209.2461 89.3164 L 209.2461 39.5859 L 232.6289 39.5859 C 232.9336 39.5938 234.0859 39.7227 234.0859 41.2773 L 234.0859 89.3164 L 248.2656 89.3164 L 248.2656 41.3047 C 248.2656 32.8008 242.6875 28.4062 232.1602 28.4062"/> <path d="M 101.9727 28.1211 L 83.2227 83.3555 L 64.4609 28.1211 L 49.3555 28.1211 L 70.1289 89.3164 L 81.1992 89.3164 L 71.4922 117.9141 L 86.6016 117.9141 L 117.0781 28.1211 Z M 101.9727 28.1211"/> </svg>';
 
   /* ============ static taxonomy ============ */
   var CATEGORY_TREE = {
@@ -17,6 +17,9 @@
   var MAJOR_COLOR = { "공통가설":"#4a5fd1", "건축":"#0f8f7e", "현장관리비":"#9350ae" };
   // guideline_docs 문서 id는 영문/숫자만 허용되는 저장소가 있어 대공종명을 그대로 쓰지 않고 매핑한다.
   var MAJOR_ID = { "공통가설":"common", "건축":"arch", "현장관리비":"sitecost" };
+
+  var DEPARTMENTS = ["건축예산팀","건축기획팀","품질기술팀","설계팀","상품기획팀","인테리어팀","외주관리팀","자재구매팀","스마트기술팀","안전보건실"];
+  var DEFAULT_DEPARTMENT = "건축예산팀";
 
   var ACCEPT_EXT = {
     ".pdf":"application/pdf", ".png":"image/png", ".jpg":"image/jpeg", ".jpeg":"image/jpeg",
@@ -38,7 +41,7 @@
     viewerId:null, isOwner:false, isPartLeader:false, isTeamMember:false, canManageRoster:false, viewApproved:false, membersReady:false,
     ready:false,
     changes:[], members:{}, sites:[],
-    filters:{ major:null, minor:null, status:"approved", q:"" },
+    filters:{ major:null, minor:null, status:"approved", q:"", urgency:null, department:null },
     collapsedMajors:{},
     formExecItems:[], formAttachments:[], formDraft:null,
     attachItemId:null, attachIndex:0,
@@ -447,61 +450,37 @@
     return rows.filter(function(r){ return r.length>1 || (r[0]||"").trim()!==""; });
   }
 
-  /* ============ magnifier ============ */
-  var magLensEl = null;
-  function getMagLens(){
-    if(!magLensEl){
-      magLensEl = document.createElement("div");
-      magLensEl.className = "mag-lens";
-      document.body.appendChild(magLensEl);
-    }
-    return magLensEl;
+  /* ============ zoom controls (카드 첨부자료 / 지침서 미리보기 공통) ============
+     예전에는 마우스를 올리면 돋보기 렌즈가 따라다니는 방식이었는데, 대신 각 뷰어마다
+     +/- 버튼으로 배율을 조절하거나, 뷰어 위에서 Ctrl(또는 Cmd)+휠로 확대/축소할 수 있게 한다. */
+  function zoomWidgetHtml(prefix){
+    return '<div class="zoom-controls">'
+      +'<button type="button" class="zoom-btn" id="'+prefix+'ZoomOut" aria-label="축소">−</button>'
+      +'<span class="zoom-pct mono" id="'+prefix+'ZoomPct">100%</span>'
+      +'<button type="button" class="zoom-btn" id="'+prefix+'ZoomIn" aria-label="확대">+</button>'
+    +'</div>';
   }
-  function attachMagnifier(target, imgSrc, zoomOverride){
-    if(!window.matchMedia || !window.matchMedia("(hover:hover) and (pointer:fine)").matches) return;
-    target.style.cursor = "zoom-in";
-    target.addEventListener("mousemove", function(e){
-      var lens = getMagLens();
-      var rect = target.getBoundingClientRect();
-      // target이 <img>이고 CSS object-fit:contain으로 표시 중이면, 박스(rect) 전체가 아니라
-      // 원본 비율에 맞게 레터박싱된 가운데 일부만 실제로 이미지가 그려지는 영역이다. 이걸 무시하고
-      // rect 전체를 기준으로 확대 배율을 계산하면, 박스와 이미지의 가로세로 비율이 다를 때
-      // 돋보기 안의 이미지가 옆으로(또는 위아래로) 늘어나 보인다. naturalWidth/Height를 이용해
-      // 실제로 그려지는 영역(contentRect)을 다시 계산해서 그 기준으로 확대한다.
-      var contentRect = rect;
-      if(target.tagName === "IMG" && target.naturalWidth && target.naturalHeight){
-        var boxRatio = rect.width / rect.height;
-        var imgRatio = target.naturalWidth / target.naturalHeight;
-        var cw, ch, cx, cy;
-        if(imgRatio > boxRatio){
-          cw = rect.width; ch = rect.width / imgRatio;
-          cx = rect.left; cy = rect.top + (rect.height - ch)/2;
-        } else {
-          ch = rect.height; cw = rect.height * imgRatio;
-          cy = rect.top; cx = rect.left + (rect.width - cw)/2;
-        }
-        contentRect = { left:cx, top:cy, width:cw, height:ch };
-      }
-      var xPct = (e.clientX-contentRect.left)/contentRect.width;
-      var yPct = (e.clientY-contentRect.top)/contentRect.height;
-      if(xPct < 0 || xPct > 1 || yPct < 0 || yPct > 1){
-        // 레터박스(여백) 위에 마우스가 있으면 돋보기를 띄우지 않는다.
-        lens.style.display = "none";
-        return;
-      }
-      // 표는 보통 가로로 길게(품명~규격 등) 훑어보게 되므로, 돋보기도 가로로 긴 직사각형으로.
-      var lensW = 500, lensH = 200; var zoom = zoomOverride || 1.2;
-      var bgW = contentRect.width*zoom, bgH = contentRect.height*zoom;
-      lens.style.left = (e.clientX-lensW/2)+"px";
-      lens.style.top = (e.clientY-lensH/2)+"px";
-      lens.style.backgroundImage = "url('"+imgSrc+"')";
-      lens.style.backgroundSize = bgW+"px "+bgH+"px";
-      lens.style.backgroundPosition = (-(xPct*bgW-lensW/2))+"px "+(-(yPct*bgH-lensH/2))+"px";
-      lens.style.display = "block";
-    });
-    target.addEventListener("mouseleave", function(){
-      if(magLensEl) magLensEl.style.display = "none";
-    });
+  function wireZoomWidget(prefix, scrollEl, targetEl){
+    if(!scrollEl || !targetEl) return;
+    var min = 0.5, max = 3, step = 0.2;
+    var zoom = 1;
+    var pctEl = document.getElementById(prefix+"ZoomPct");
+    function apply(){
+      targetEl.style.transform = "scale("+zoom.toFixed(2)+")";
+      targetEl.style.transformOrigin = "top left";
+      if(pctEl) pctEl.textContent = Math.round(zoom*100)+"%";
+    }
+    function setZoom(z){ zoom = Math.max(min, Math.min(max, z)); apply(); }
+    var inBtn = document.getElementById(prefix+"ZoomIn");
+    var outBtn = document.getElementById(prefix+"ZoomOut");
+    if(inBtn) inBtn.addEventListener("click", function(){ setZoom(zoom+step); });
+    if(outBtn) outBtn.addEventListener("click", function(){ setZoom(zoom-step); });
+    scrollEl.addEventListener("wheel", function(e){
+      if(!e.ctrlKey && !e.metaKey) return;
+      e.preventDefault();
+      setZoom(zoom + (e.deltaY > 0 ? -0.1 : 0.1));
+    }, { passive:false });
+    apply();
   }
   /* ============ Supabase data adapter (Firestore-like surface) ============
      Reproduces the small slice of the Firestore client API this app relies on
@@ -513,7 +492,7 @@
 
   var FIELD_MAP = {
     changes: {
-      major:"major", minor:"minor", title:"title", summary:"summary",
+      major:"major", minor:"minor", title:"title", summary:"summary", department:"department",
       changeDate:"change_date", effectiveDate:"effective_date", effectiveScope:"effective_scope",
       reason:"reason", urgency:"urgency", status:"status", tags:"tags",
       execItems:"exec_items", attachments:"attachments",
@@ -844,7 +823,7 @@
     }
 
     var parts = route();
-    var listLikeRoutes = ["month","approvals","sites"];
+    var listLikeRoutes = ["month","approvals","sites","dept"];
     if(!parts[0] || listLikeRoutes.indexOf(parts[0])!==-1){
       S.lastListHash = location.hash || "#/";
     }
@@ -859,6 +838,8 @@
     else if(parts[0] === "settings") body = viewSettings();
     else if(parts[0] === "sites" && parts[1]) body = viewSiteDetail(parts[1]);
     else if(parts[0] === "sites") body = viewSites();
+    else if(parts[0] === "dept" && parts[1]){ S.filters.department = decodeURIComponent(parts[1]); body = viewList(null); }
+    else if(parts[0] === "dept") body = viewDeptPicker();
     else if(parts[0] === "month" && parts[1]) body = viewList(parts[1]);
     else body = viewList(null);
 
@@ -877,7 +858,7 @@
 
   /* ============ auth gate / login / welcome (no topbar) ============ */
   function authGateLogo(){
-    return '<div class="auth-gate-logo"><img src="'+LYNN_LOGO+'" alt="Lynn"><span>Standard</span><span class="brand-dot"></span></div>';
+    return '<div class="auth-gate-logo">'+LYNN_LOGO_SVG+'<span>Standard</span><span class="brand-dot"></span></div>';
   }
   function renderConfigGate(){
     return '<div class="auth-gate">'
@@ -1012,13 +993,14 @@
 
     return ''
     +'<div class="topbar">'
-      +'<div class="brand" data-nav="home"><span class="brand-logo"><img src="'+LYNN_LOGO+'" alt="Lynn"></span><span class="mark">Standard</span><span class="brand-dot"></span><span class="sub">건축예산팀 · 실행파트</span></div>'
+      +'<div class="brand" data-nav="home"><span class="brand-logo">'+LYNN_LOGO_SVG+'</span><span class="mark">Standard</span><span class="brand-dot"></span><span class="sub">건축예산팀 · 실행파트</span></div>'
       +'<div class="search-wrap"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-3.5-3.5"/></svg>'
         +'<input id="searchInput" type="text" placeholder="공종·내용·#태그 검색" value="'+esc(S.filters.q)+'"></div>'
       +'<div class="topbar-actions">'
         +'<button class="pill tb" data-nav-month="'+ymOf(new Date())+'">이번달</button>'
         +'<button class="pill tb" data-nav="approvals">승인대기'+(pc>0?'<span class="badge">'+pc+'</span>':'')+'</button>'
         +'<button class="pill tb" data-nav="sites">현장현황</button>'
+        +'<button class="pill tb" data-nav="dept">부서별</button>'
         +'<button class="pill tb'+(S.docsearchOpen?' on':'')+'" id="docsearchToggleBtn" type="button">✦ 지침서 검색</button>'
         +(canWrite() ? '<button class="btn accent" data-nav="new">+ 신규 등록</button>' : '')
       +'</div>'
@@ -1057,8 +1039,8 @@
     document.querySelectorAll("[data-nav]").forEach(function(el){
       el.addEventListener("click", function(){
         var v = el.getAttribute("data-nav");
-        if(v==="all"){ S.filters.major=null; S.filters.minor=null; location.hash="#/"; render(); }
-        else if(v==="home"){ S.filters.major=null; S.filters.minor=null; location.hash="#/"; render(); }
+        if(v==="all"){ S.filters.major=null; S.filters.minor=null; S.filters.department=null; location.hash="#/"; render(); }
+        else if(v==="home"){ S.filters.major=null; S.filters.minor=null; S.filters.department=null; location.hash="#/"; render(); }
         else location.hash = "#/"+v;
       });
     });
@@ -1176,6 +1158,8 @@
         if(S.filters.minor && c.minor !== S.filters.minor) return false;
       }
       if(S.filters.status !== "all" && c.status !== S.filters.status) return false;
+      if(S.filters.urgency && c.urgency !== S.filters.urgency) return false;
+      if(S.filters.department && (c.department||DEFAULT_DEPARTMENT) !== S.filters.department) return false;
       if(monthYm && (c.changeDate||"").slice(0,7) !== monthYm) return false;
       if(searching){
         var q = S.filters.q.toLowerCase().trim().replace(/^#/, "");
@@ -1187,7 +1171,10 @@
   }
 
   function viewList(monthYm){
-    var heading = monthYm ? fmtYm(monthYm)+" 변경사항" : (S.filters.minor || S.filters.major || "전체 공종 · 최근 변경");
+    var scopeParts = [];
+    if(S.filters.department) scopeParts.push(S.filters.department);
+    if(S.filters.minor) scopeParts.push(S.filters.minor); else if(S.filters.major) scopeParts.push(S.filters.major);
+    var heading = monthYm ? fmtYm(monthYm)+" 변경사항" : (scopeParts.length ? scopeParts.join(" · ") : "전체 공종 · 최근 변경");
     var d = new Date(monthYm ? monthYm+"-01" : ymOf(new Date())+"-01");
     var head = '<div class="content-head"><div><h1 id="listHeading">'+esc(heading)+'</h1>'
       +'<div class="meta">'+(monthYm ? '해당 월에 등록·승인된 실행 편성 기준 변경 이력' : '전체 공종의 실행 편성 기준 변경 이력 (최신순)')+'</div></div>';
@@ -1203,7 +1190,7 @@
     head += '</div>';
 
     var statBar = "";
-    if(!monthYm && !S.filters.major && !S.filters.minor){
+    if(!monthYm && !S.filters.major && !S.filters.minor && !S.filters.department){
       var curYm = ymOf(new Date());
       var thisMonthCount = S.changes.filter(function(c){ return (c.changeDate||"").slice(0,7)===curYm; }).length;
       statBar = '<div class="stat-row">'
@@ -1223,12 +1210,20 @@
 
   function filterRow(){
     var statuses = [["approved","승인됨"],["pending","대기중"],["rejected","반려됨"],["all","전체"]];
+    var urgencies = [["confirm","urgency-confirm","🟡 확인필요"],["required","urgency-required","🔴 필수반영"]];
     var html = '<div class="filter-row">';
     statuses.forEach(function(s){
       html += '<button class="pill'+(S.filters.status===s[0]?' on':'')+'" data-status="'+s[0]+'">'+s[1]+'</button>';
     });
+    html += '<span class="filter-divider"></span>';
+    urgencies.forEach(function(u){
+      html += '<button class="pill '+u[1]+(S.filters.urgency===u[0]?' on':'')+'" data-urgency="'+u[0]+'">'+u[2]+'</button>';
+    });
     if(S.filters.major || S.filters.minor){
       html += '<button class="pill" data-clear-cat="1">'+esc(S.filters.minor||S.filters.major)+' ✕</button>';
+    }
+    if(S.filters.department){
+      html += '<button class="pill" data-clear-dept="1">🏢 '+esc(S.filters.department)+' ✕</button>';
     }
     html += '</div>';
     return html;
@@ -1314,14 +1309,23 @@
     document.querySelectorAll("[data-status]").forEach(function(el){
       el.addEventListener("click", function(){ S.filters.status = el.getAttribute("data-status"); render(); });
     });
+    document.querySelectorAll("[data-urgency]").forEach(function(el){
+      el.addEventListener("click", function(){
+        var v = el.getAttribute("data-urgency");
+        S.filters.urgency = (S.filters.urgency === v) ? null : v;
+        render();
+      });
+    });
     var clearCat = document.querySelector("[data-clear-cat]");
     if(clearCat) clearCat.addEventListener("click", function(){ S.filters.major=null; S.filters.minor=null; render(); });
+    var clearDept = document.querySelector("[data-clear-dept]");
+    if(clearDept) clearDept.addEventListener("click", function(){ S.filters.department=null; location.hash="#/"; render(); });
     var mp = document.getElementById("monthPick");
     if(mp) mp.addEventListener("change", function(){ location.hash = "#/month/"+mp.value; });
     document.querySelectorAll("[data-stat]").forEach(function(el){
       el.addEventListener("click", function(){
         var v = el.getAttribute("data-stat");
-        if(v==="all"){ S.filters.major=null; S.filters.minor=null; S.filters.status="approved"; S.filters.q=""; location.hash="#/"; render(); }
+        if(v==="all"){ S.filters.major=null; S.filters.minor=null; S.filters.status="approved"; S.filters.q=""; S.filters.urgency=null; S.filters.department=null; location.hash="#/"; render(); }
         else if(v==="month"){ S.filters.major=null; S.filters.minor=null; location.hash="#/month/"+ymOf(new Date()); render(); }
         else if(v==="pending"){ location.hash="#/approvals"; render(); }
       });
@@ -1366,13 +1370,13 @@
       if(S.attachIndex >= attachments.length || S.attachIndex < 0) S.attachIndex = 0;
       var ai = S.attachIndex;
       var a = attachments[ai];
-      var body; var magHint = "";
+      var body; var zoomable = false;
       if(a.contentType === "application/pdf"){
         body = '<div class="att-pdf-host" id="attPdfHost"><div class="att-fallback" style="padding:14px;font-size:12px;color:var(--ink-faint);">PDF 불러오는 중…</div></div>';
-        magHint = '<div class="mag-hint avail">🔍 마우스를 올리면 확대해서 볼 수 있어요</div>';
+        zoomable = true;
       } else if((a.contentType||"").indexOf("image/")===0){
         body = '<img id="attImg" src="'+a.url+'" alt="'+esc(a.name)+'" onerror="this.parentElement.querySelector(\'.att-fallback\').style.display=\'block\';this.style.display=\'none\';">' + '<div class="att-fallback" style="display:none;padding:14px;font-size:12px;color:var(--ink-faint);">이미지를 불러오지 못했습니다. 아래 링크로 열어주세요.</div>';
-        magHint = '<div class="mag-hint avail">🔍 마우스를 올리면 확대해서 볼 수 있어요</div>';
+        zoomable = true;
       } else if(isExcelMime(a.contentType)){
         body = '<div class="att-excel-host" id="attExcelHost" data-kind="excel"><div class="att-fallback" style="padding:14px;font-size:12px;color:var(--ink-faint);">표 불러오는 중…</div></div>'
           + (a.sheetCount>1 ? '<div class="att-excel-note">첫 번째 시트만 미리보기에 반영돼요 (전체 '+a.sheetCount+'개 시트)</div>' : '');
@@ -1388,8 +1392,9 @@
         : '';
       attachBlock = '<div class="block"><h3>결재본 / 첨부자료</h3><div class="attach-item">'
         +'<div class="att-head"><span class="fn">'+esc(a.name)+'</span>'+navHtml+'<a href="'+a.url+'" target="_blank" rel="noopener" class="att-open">새 창에서 열기 ↗</a></div>'
-        +body
-      +'</div>'+magHint+'</div>';
+        +'<div class="att-viewport" id="attZoomScroll">'+body+'</div>'
+        +(zoomable ? zoomWidgetHtml("att") : "")
+      +'</div></div>';
     }
 
     var reasonBlock = c.reason ? '<div class="block"><h3>변경 사유</h3><p>'+esc(c.reason)+'</p></div>' : "";
@@ -1437,6 +1442,7 @@
         +tagsBlock
         +'<div class="fact-line">'
           +'<span class="fl-item"><b>날짜</b><span class="fl-val mono">'+fmtDate(c.changeDate,precision)+'</span></span>'
+          +'<span class="fl-item"><b>유관부서</b><span class="fl-val">'+esc(c.department||DEFAULT_DEPARTMENT)+'</span></span>'
           +'<span class="fl-item"><b>적용현장</b><span class="fl-val">'+esc(c.effectiveScope||"전현장")+'</span></span>'
           +'<span class="fl-item"><b>등록자</b><span class="fl-val">'+userLabel(c.submittedById, c.submittedByName, "초기 등록")+'</span></span>'
         +'</div>'
@@ -1470,12 +1476,11 @@
     });
     var attachments = c.attachments || [];
     var curAtt = attachments[S.attachIndex];
+    var attZoomScroll = document.getElementById("attZoomScroll");
     var pdfHost = document.getElementById("attPdfHost");
     if(pdfHost && curAtt){
-      renderPdfInto(pdfHost, curAtt.url, function(canvases){
-        canvases.forEach(function(cv){
-          try{ attachMagnifier(cv, cv.toDataURL()); }catch(e){}
-        });
+      renderPdfInto(pdfHost, curAtt.url, function(){
+        wireZoomWidget("att", attZoomScroll, pdfHost);
       });
     }
     var excelHost = document.getElementById("attExcelHost");
@@ -1484,7 +1489,7 @@
       else renderExcelInto(excelHost, curAtt.url);
     }
     var attImg = document.getElementById("attImg");
-    if(attImg && curAtt){ attachMagnifier(attImg, curAtt.url); }
+    if(attImg && curAtt){ wireZoomWidget("att", attZoomScroll, attImg); }
     var attPrev = document.getElementById("attPrev");
     if(attPrev) attPrev.addEventListener("click", function(){
       S.attachIndex = (S.attachIndex - 1 + attachments.length) % attachments.length;
@@ -1584,6 +1589,7 @@
         S.formAttachments = (c.attachments||[]).map(function(a){ return Object.assign({},a); });
         S.formDraft = {
           changeDate: c.changeDate||"", major: c.major||"", minor: c.minor||"", urgency: c.urgency||"",
+          department: c.department||DEFAULT_DEPARTMENT,
           title: c.title||"", summary: c.summary||"", effScope: c.effectiveScope||"전현장",
           tags: (c.tags||[]).join(", "), reason: c.reason||"",
           secReasonOpen: !!c.reason, secExecOpen: !!(c.execItems||[]).length, secFilesOpen: !!(c.attachments||[]).length
@@ -1593,13 +1599,15 @@
         S.formAttachments = [];
         S.formDraft = {
           changeDate: new Date().toISOString().slice(0,10), major: S.filters.major||"", minor: S.filters.minor||"",
-          urgency: "", title: "", summary: "", effScope: "전현장", tags: "", reason: "",
+          urgency: "", department: DEFAULT_DEPARTMENT,
+          title: "", summary: "", effScope: "전현장", tags: "", reason: "",
           secReasonOpen:false, secExecOpen:false, secFilesOpen:false
         };
       }
     }
     S.formExecItems = S.formExecItems.length ? S.formExecItems : [{name:"",spec:"",unit:"",qty:"",unitPrice:"",amount:""}];
     var majorOpts = MAJORS.map(function(m){ return '<option value="'+esc(m)+'">'+esc(m)+'</option>'; }).join("");
+    var deptOpts = DEPARTMENTS.map(function(d){ return '<option value="'+esc(d)+'">'+esc(d)+'</option>'; }).join("");
     var showApproveCombo = c && S.isPartLeader && c.status==="pending";
     var actionsHtml = showApproveCombo
       ? '<div class="form-actions"><button class="btn ghost" id="cancelForm" type="button">취소</button><button class="btn ghost" id="submitForm" type="button">저장만 (승인 대기 유지)</button><button class="btn" id="submitApproveForm" type="button">수정 후 승인</button></div>'
@@ -1609,8 +1617,11 @@
       +'<div class="form-card">'
         +'<h2 style="font-family:var(--font-d);font-size:18px;margin:0 0 4px;">'+(c?'기준 변경 수정':'신규 기준 변경 등록')+'</h2>'
         +'<div class="meta" style="color:var(--ink-faint);font-size:12.5px;margin-bottom:18px;">'+(c?(showApproveCombo?'내용을 수정하고 바로 승인하거나, 승인 대기 상태를 유지한 채 저장할 수 있어요.':'대기중 상태에서만 수정할 수 있어요. 수정 후에도 파트장 승인이 필요합니다.'):'등록 후 파트장 승인을 거쳐 목록에 정식 반영됩니다.')+'</div>'
-        +'<div class="f-grid">'
+        +'<div class="f-row-2">'
           +'<div class="f-field"><label for="f-changeDate">날짜 (등록일 / 기준변경 시점)</label><input id="f-changeDate" type="date"></div>'
+          +'<div class="f-field"><label for="f-department">유관부서</label><select id="f-department">'+deptOpts+'</select></div>'
+        +'</div>'
+        +'<div class="f-row-3">'
           +'<div class="f-field"><label for="f-major">대분류</label><select id="f-major">'+majorOpts+'</select></div>'
           +'<div class="f-field"><label for="f-minor">중분류(공종)</label><select id="f-minor"></select></div>'
           +'<div class="f-field"><label for="f-urgency">중요도</label><select id="f-urgency">'
@@ -1618,6 +1629,8 @@
             +'<option value="required">🔴 필수반영</option>'
             +'<option value="confirm">🟡 확인필요</option>'
           +'</select></div>'
+        +'</div>'
+        +'<div class="f-grid">'
           +'<div class="f-field full"><label for="f-title">핵심 제목</label><input id="f-title" type="text" placeholder="예: 이동식 미스트 환경관리비 반영" maxlength="80"></div>'
           +'<div class="f-field full"><label for="f-summary">실행 반영 내용 (실행편성 담당자가 바로 알아야 할 내용)</label><textarea id="f-summary" placeholder="예: 환경관리비에 이동식 미스트 반영: 300만원/대. 500세대 이하 2대, 500세대마다 1대 추가 편성."></textarea></div>'
           +'<div class="f-field full"><label for="f-effScope">적용 현장</label><input id="f-effScope" type="text" placeholder="전현장 (또는 예: OO현장부터, LH현장)" value="전현장"></div>'
@@ -1781,6 +1794,7 @@
     document.getElementById("f-changeDate").value = draft.changeDate;
     document.getElementById("f-effScope").value = draft.effScope;
     document.getElementById("f-urgency").value = draft.urgency;
+    document.getElementById("f-department").value = draft.department || DEFAULT_DEPARTMENT;
     document.getElementById("f-tags").value = draft.tags;
     document.getElementById("f-reason").value = draft.reason;
     if(draft.secReasonOpen) document.getElementById("secReason").open = true;
@@ -1792,6 +1806,7 @@
     document.getElementById("f-changeDate").addEventListener("input", function(e){ draft.changeDate = e.target.value; });
     document.getElementById("f-effScope").addEventListener("input", function(e){ draft.effScope = e.target.value; });
     document.getElementById("f-urgency").addEventListener("change", function(e){ draft.urgency = e.target.value; });
+    document.getElementById("f-department").addEventListener("change", function(e){ draft.department = e.target.value; });
     document.getElementById("f-tags").addEventListener("input", function(e){ draft.tags = e.target.value; });
     document.getElementById("f-reason").addEventListener("input", function(e){ draft.reason = e.target.value; });
     [["secReason","secReasonOpen"],["secExec","secExecOpen"],["secFiles","secFilesOpen"]].forEach(function(pair){
@@ -1837,6 +1852,7 @@
     var effScope = document.getElementById("f-effScope").value.trim() || "전현장";
     var reason = document.getElementById("f-reason").value.trim();
     var urgency = document.getElementById("f-urgency").value;
+    var department = document.getElementById("f-department").value || DEFAULT_DEPARTMENT;
     var tags = document.getElementById("f-tags").value.split(",").map(function(s){ return s.trim().replace(/^#/,""); }).filter(Boolean);
 
     if(!title || !summary || !changeDate){ toast("핵심 제목, 실행 반영 내용, 날짜는 필수입니다."); return; }
@@ -1844,7 +1860,7 @@
 
     var execItems = S.formExecItems.filter(function(it){ return it.name || it.spec; });
     var payload = {
-      major: major, minor: minor, title: title, summary: summary,
+      major: major, minor: minor, title: title, summary: summary, department: department,
       changeDate: changeDate, effectiveDate: changeDate, effectiveScope: effScope,
       reason: reason, urgency: urgency, tags: tags, execItems: execItems, attachments: S.formAttachments
     };
@@ -2306,8 +2322,8 @@
         +'<span class="pg mono">'+v.page+' / '+(doc?doc.pageCount:'?')+'</span>'
         +'<button class="icon-btn" id="docsearchNextBtn" style="width:26px;height:26px;" aria-label="다음 페이지"'+(doc&&v.page>=doc.pageCount?' disabled':'')+'>&rarr;</button>'
       +'</div>'
-      +'<div class="docsearch-viewer-host" id="docsearchViewerHost"><div style="padding:14px;font-size:12px;color:var(--ink-faint);">불러오는 중…</div></div>'
-      +'<div class="mag-hint avail">🔍 마우스를 올리면 확대해서 볼 수 있어요</div>'
+      +'<div class="docsearch-viewport" id="docsearchZoomScroll"><div class="docsearch-viewer-host" id="docsearchViewerHost"><div style="padding:14px;font-size:12px;color:var(--ink-faint);">불러오는 중…</div></div></div>'
+      +zoomWidgetHtml("docsearch")
     +'</div>';
   }
 
@@ -2385,9 +2401,8 @@
         var shown = cropCanvasToContent(canvas);
         container.innerHTML = "";
         container.appendChild(shown);
-        // 잘라낸 뒤에도 세부 내용을 더 자세히 보고 싶을 수 있어 돋보기를 다시 붙인다
-        // (첨부파일 돋보기와 동일하게 1.5배 — attachMagnifier 기본값 사용).
-        try{ attachMagnifier(shown, shown.toDataURL()); }catch(e){}
+        // 잘라낸 뒤에도 세부 내용을 더 자세히 보고 싶을 수 있어 +/- 버튼이나 Ctrl+휠로 확대할 수 있게 한다.
+        try{ wireZoomWidget("docsearch", container.parentElement, container); }catch(e){}
       });
     }).catch(function(err){
       console.warn("guideline pdf render failed", err);
@@ -2558,6 +2573,24 @@
     }).catch(function(err){ console.warn(err); toast("저장 중 오류가 발생했습니다."); });
   }
 
+  function viewDeptPicker(){
+    var head = '<div class="content-head"><div><h1>부서별 조회</h1>'
+      +'<div class="meta">유관부서별로 등록된 실행 편성 기준 변경 이력을 모아볼 수 있어요.</div></div></div>';
+    var rows = DEPARTMENTS.map(function(d){
+      var cnt = S.changes.filter(function(c){ return (c.department||DEFAULT_DEPARTMENT) === d; }).length;
+      return '<button class="row" data-open-dept="'+encodeURIComponent(d)+'">'
+        +'<div class="rowmain"><div class="rowtitle">'+esc(d)+'</div></div>'
+        +'<span class="chip neutral">'+cnt+'건</span>'
+      +'</button>';
+    }).join("");
+    return head + '<div class="change-list">'+rows+'</div>';
+  }
+  function wireDeptPicker(){
+    document.querySelectorAll("[data-open-dept]").forEach(function(el){
+      el.addEventListener("click", function(){ location.hash = "#/dept/"+el.getAttribute("data-open-dept"); });
+    });
+  }
+
   function viewSites(){
     var head = '<div class="content-head"><div><h1>현장별 실행 반영 현황</h1>'
       +'<div class="meta">현장에 실행 마감일을 설정하면, 마감일 이전 기준은 체크리스트로 반영 여부를 관리하고 마감일 이후 새로 생긴 기준은 따로 모아 보여줘요.</div></div></div>';
@@ -2664,18 +2697,29 @@
     var locked = siteChecklistLocked(s);
     var deadlineEditable = !locked && canWrite();
 
-    // 상단 액션 영역: 저장 - 승인요청/상태를 한 줄로, 저장 버튼은 항상 승인요청(등) 바로 왼쪽에 온다.
+    // 상단 액션 영역: draft 상태에서만 저장 버튼이 승인요청 왼쪽에 온다.
+    // 승인대기중/승인됨 상태는 체크리스트/마감일이 잠겨서 저장할 내용이 없으므로 저장 버튼을 보이지 않는다.
     var saveHtml = canWrite() ? '<button class="btn ghost" id="saveSiteAll" type="button">저장</button>' : "";
     var actionHtml = "";
     if(status === "draft"){
       actionHtml = saveHtml + (canWrite() ? '<button class="btn" id="btnRequestSiteApproval" type="button">승인요청</button>' : "");
     } else if(status === "pending_approval"){
-      actionHtml = saveHtml + '<span class="chip pending">승인 대기중</span>'
-        + (S.isPartLeader ? '<button class="btn" id="btnApproveSite" type="button">승인</button>' : '')
-        + ((S.isPartLeader||S.isOwner) ? '<button class="btn ghost" id="btnReopenSite" type="button">다시 열기</button>' : '');
+      if(S.isPartLeader){
+        actionHtml = '<span class="chip pending">승인 대기중</span>'
+          + '<button class="btn" id="btnApproveSite" type="button">승인</button>';
+      } else if(canWrite()){
+        actionHtml = '<span class="chip pending">승인 대기중</span>'
+          + '<button class="btn ghost" id="btnCancelSiteRequest" type="button">승인요청 취소</button>';
+      } else {
+        actionHtml = '<span class="chip pending">승인 대기중</span>';
+      }
     } else if(status === "approved"){
-      actionHtml = saveHtml + '<span class="chip approved">승인됨</span>'
-        + ((S.isPartLeader||S.isOwner) ? '<button class="btn ghost" id="btnReopenSite" type="button">다시 열기</button>' : '');
+      if(S.isPartLeader || S.isOwner){
+        actionHtml = '<span class="chip approved">승인됨</span>'
+          + '<button class="btn ghost" id="btnUndoSiteApproval" type="button">승인완료 취소</button>';
+      } else {
+        actionHtml = '<span class="chip approved">승인됨</span>';
+      }
     }
 
     var managerOptions = '<option value="">미지정</option>' + Object.keys(S.members).map(function(mid){
@@ -2801,6 +2845,25 @@
     }).then(function(){ toast("체크리스트를 다시 열었습니다."); })
       .catch(function(err){ console.warn(err); toast("처리 중 오류가 발생했습니다."); });
   }
+  // 승인요청 취소: 승인 대기중 상태를 다시 draft로 되돌린다 (제출 정보 초기화).
+  function cancelSiteApprovalRequest(id){
+    if(!S.db || !canWrite()) return;
+    S.db.doc("sites/"+id).update({
+      checklistStatus:"draft",
+      submittedById:"", submittedByName:"", submittedAt:"",
+      cancelledById:S.viewerId, cancelledByName:S.viewerName||"", cancelledAt:nowIso()
+    }).then(function(){ toast("승인요청을 취소했습니다."); })
+      .catch(function(err){ console.warn(err); toast("처리 중 오류가 발생했습니다."); });
+  }
+  // 승인완료 취소: 승인됨 상태를 승인 대기중으로 되돌린다 (승인 정보 초기화, "다시 열기"와 달리 draft까지 가지 않는다).
+  function undoSiteApproval(id){
+    if(!S.db || !(S.isPartLeader||S.isOwner)) return;
+    S.db.doc("sites/"+id).update({
+      checklistStatus:"pending_approval",
+      approvedById:"", approvedByName:"", approvedAt:""
+    }).then(function(){ toast("승인완료를 취소했습니다."); })
+      .catch(function(err){ console.warn(err); toast("처리 중 오류가 발생했습니다."); });
+  }
 
   function wireSiteDetail(id){
     document.querySelectorAll(".rowmain[data-open]").forEach(function(el){
@@ -2836,6 +2899,10 @@
     if(apBtn) apBtn.addEventListener("click", function(){ approveSiteChecklist(id); });
     var reopenBtn = document.getElementById("btnReopenSite");
     if(reopenBtn) reopenBtn.addEventListener("click", function(){ reopenSiteChecklist(id); });
+    var cancelReqBtn = document.getElementById("btnCancelSiteRequest");
+    if(cancelReqBtn) cancelReqBtn.addEventListener("click", function(){ cancelSiteApprovalRequest(id); });
+    var undoApproveBtn = document.getElementById("btnUndoSiteApproval");
+    if(undoApproveBtn) undoApproveBtn.addEventListener("click", function(){ undoSiteApproval(id); });
     document.querySelectorAll("[data-site-mode]").forEach(function(btn){
       btn.addEventListener("click", function(){
         S.siteViewMode = btn.getAttribute("data-site-mode");
@@ -2853,6 +2920,7 @@
     if(parts[0] === "settings"){ wireSettings(); return; }
     if(parts[0] === "sites" && parts[1]){ wireSiteDetail(parts[1]); return; }
     if(parts[0] === "sites"){ wireSites(); return; }
+    if(parts[0] === "dept" && !parts[1]){ wireDeptPicker(); return; }
     wireRows(); resolveNames();
   }
 
