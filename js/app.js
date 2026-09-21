@@ -11,10 +11,12 @@
   var CATEGORY_TREE = {
     "공통가설": ["01. 가설건물","02. 환경관리비","03. 가시설물","04. 가설설비","05. 장비비","06. 기타공통가설공사"],
     "건축": ["01. 가설공사","02. 파일공사","03. 철근콘크리트공사","04. 조적공사","05. 방수공사","06. 미장공사","07. 타일공사","08. 석공사","09. 내장공사","10. 창호공사","11. 유리공사","12. 도장공사","13. 수장공사","14. 금속공사","15. 잡공사","16. 가구공사","17. 인테리어공사","18. 특화공사"],
-    "현관비": ["01. 급여","02. 복리후생비","03. 여비교통비","04. 통신비","05. 집기비품","06. 도서인쇄비","07. 수도광열비","08. 예비비","09. 수선비","10. 세금과공과","11. 지급수수료","12. 판매관리비","13. TFT 운영비용"]
+    "현장관리비": ["01. 급여","02. 복리후생비","03. 여비교통비","04. 통신비","05. 집기비품","06. 도서인쇄비","07. 수도광열비","08. 예비비","09. 수선비","10. 세금과공과","11. 지급수수료","12. 판매관리비","13. TFT 운영비용"]
   };
-  var MAJORS = ["공통가설","건축","현관비"];
-  var MAJOR_COLOR = { "공통가설":"#4a5fd1", "건축":"#0f8f7e", "현관비":"#9350ae" };
+  var MAJORS = ["공통가설","건축","현장관리비"];
+  var MAJOR_COLOR = { "공통가설":"#4a5fd1", "건축":"#0f8f7e", "현장관리비":"#9350ae" };
+  // guideline_docs 문서 id는 영문/숫자만 허용되는 저장소가 있어 대공종명을 그대로 쓰지 않고 매핑한다.
+  var MAJOR_ID = { "공통가설":"common", "건축":"arch", "현장관리비":"sitecost" };
 
   var ACCEPT_EXT = {
     ".pdf":"application/pdf", ".png":"image/png", ".jpg":"image/jpeg", ".jpeg":"image/jpeg",
@@ -43,15 +45,19 @@
     lastListHash:"#/",
     formEditId:undefined,
     deleteConfirmId:null,
-    sidebarW:196,
+    sidebarW:196, docsearchW:340,
     siteDetailId:null, siteViewMode:"checklist",
     showWelcome:false,
-    unsubs:[]
+    unsubs:[],
+    guidelineDocs:{}, guidelineChunksByDoc:{}, guidelineRevisions:{}, gdocUploading:{}, gdocPending:{}, pdfCache:{},
+    docsearchOpen:false, docsearchQuery:"", docsearchResults:[], docsearchViewer:null
   };
 
   (function loadPanelWidths(){
     try{
       var sw = localStorage.getItem("lynn_sidebarW"); if(sw) S.sidebarW = Math.max(150, Math.min(420, parseInt(sw,10)||196));
+      var dw = localStorage.getItem("lynn_docsearchW"); if(dw) S.docsearchW = Math.max(260, Math.min(560, parseInt(dw,10)||340));
+      var dso = localStorage.getItem("lynn_docsearchOpen"); if(dso==="1") S.docsearchOpen = true;
     }catch(e){}
   })();
 
@@ -447,7 +453,7 @@
     }
     return magLensEl;
   }
-  function attachMagnifier(target, imgSrc){
+  function attachMagnifier(target, imgSrc, zoomOverride){
     if(!window.matchMedia || !window.matchMedia("(hover:hover) and (pointer:fine)").matches) return;
     target.style.cursor = "zoom-in";
     target.addEventListener("mousemove", function(e){
@@ -455,13 +461,14 @@
       var rect = target.getBoundingClientRect();
       var xPct = (e.clientX-rect.left)/rect.width;
       var yPct = (e.clientY-rect.top)/rect.height;
-      var lensSize = 190; var zoom = 2.4;
+      // 표는 보통 가로로 길게(품명~규격 등) 훑어보게 되므로, 돋보기도 가로로 긴 직사각형으로.
+      var lensW = 500, lensH = 200; var zoom = zoomOverride || 2.4;
       var bgW = rect.width*zoom, bgH = rect.height*zoom;
-      lens.style.left = (e.clientX-lensSize/2)+"px";
-      lens.style.top = (e.clientY-lensSize/2)+"px";
+      lens.style.left = (e.clientX-lensW/2)+"px";
+      lens.style.top = (e.clientY-lensH/2)+"px";
       lens.style.backgroundImage = "url('"+imgSrc+"')";
       lens.style.backgroundSize = bgW+"px "+bgH+"px";
-      lens.style.backgroundPosition = (-(xPct*bgW-lensSize/2))+"px "+(-(yPct*bgH-lensSize/2))+"px";
+      lens.style.backgroundPosition = (-(xPct*bgW-lensW/2))+"px "+(-(yPct*bgH-lensH/2))+"px";
       lens.style.display = "block";
     });
     target.addEventListener("mouseleave", function(){
@@ -474,7 +481,7 @@
      backed by real Supabase tables, with camelCase(JS) <-> snake_case(Postgres)
      field mapping handled per collection so the rest of app.js needs no changes. */
 
-  var COLLECTION_TABLE = { changes: "changes", sites: "sites", members: "profiles" };
+  var COLLECTION_TABLE = { changes: "changes", sites: "sites", members: "profiles", guidelineDocs: "guideline_docs", guidelineChunks: "guideline_chunks", guidelineRevisions: "guideline_revisions" };
 
   var FIELD_MAP = {
     changes: {
@@ -489,6 +496,8 @@
     },
     sites: {
       name:"name", deadline:"deadline", checklistStatus:"checklist_status", appliedMap:"applied_map",
+      appliedGuidelines:"applied_guidelines",
+      managerId:"manager_id", managerName:"manager_name",
       submittedById:"submitted_by", submittedByName:"submitted_by_name", submittedAt:"submitted_at",
       approvedById:"approved_by", approvedByName:"approved_by_name", approvedAt:"approved_at",
       reopenedById:"reopened_by", reopenedByName:"reopened_by_name", reopenedAt:"reopened_at",
@@ -499,6 +508,18 @@
       name:"name", displayName:"display_name", role:"role", isAdmin:"is_admin",
       firstSeenAt:"first_seen_at", lastSeenAt:"last_seen_at",
       addedBy:"added_by", addedAt:"added_at", createdAt:"created_at"
+    },
+    guidelineDocs: {
+      major:"major", fileName:"file_name", url:"url", pageCount:"page_count", chunkCount:"chunk_count",
+      uploadedById:"uploaded_by", uploadedByName:"uploaded_by_name", uploadedAt:"uploaded_at",
+      updatedAt:"updated_at"
+    },
+    guidelineChunks: {
+      docId:"doc_id", chunkIndex:"chunk_index", pages:"pages", updatedAt:"updated_at"
+    },
+    guidelineRevisions: {
+      docId:"doc_id", major:"major", fileName:"file_name", url:"url", pageCount:"page_count",
+      uploadedById:"uploaded_by", uploadedByName:"uploaded_by_name", uploadedAt:"uploaded_at", createdAt:"created_at"
     }
   };
 
@@ -507,7 +528,7 @@
     Object.keys(m).forEach(function(k){ r[m[k]] = k; });
     return r;
   }
-  var FIELD_MAP_REV = { changes: reverseMap(FIELD_MAP.changes), sites: reverseMap(FIELD_MAP.sites), members: reverseMap(FIELD_MAP.members) };
+  var FIELD_MAP_REV = { changes: reverseMap(FIELD_MAP.changes), sites: reverseMap(FIELD_MAP.sites), members: reverseMap(FIELD_MAP.members), guidelineDocs: reverseMap(FIELD_MAP.guidelineDocs), guidelineChunks: reverseMap(FIELD_MAP.guidelineChunks), guidelineRevisions: reverseMap(FIELD_MAP.guidelineRevisions) };
 
   function toRow(coll, obj){
     var map = FIELD_MAP[coll] || {};
@@ -646,7 +667,7 @@
         teardownSubscriptions();
         S.session = null; S.viewerId = null; S.viewerName = null;
         S.isPartLeader=false; S.isTeamMember=false; S.canManageRoster=false; S.isOwner=false;
-        S.changes=[]; S.members={}; S.sites=[];
+        S.changes=[]; S.members={}; S.sites=[]; S.guidelineDocs={}; S.guidelineRevisions={};
         render();
         return;
       }
@@ -664,6 +685,9 @@
     subscribeChanges();
     subscribeMembers();
     subscribeSites();
+    subscribeGuidelineDocs();
+    subscribeGuidelineChunks();
+    subscribeGuidelineRevisions();
     touchLastSeen();
     S.ready = true;
     render();
@@ -704,6 +728,44 @@
       S.sites = snap.docs.map(function(d){ return Object.assign({}, d.data()||{}, {id:d.id}); });
       render();
     }, function(err){ console.warn("sites sub error", err); });
+    S.unsubs.push(unsub);
+  }
+  function subscribeGuidelineDocs(){
+    var unsub = S.db.collection("guidelineDocs").limit(10).onSnapshot(function(snap){
+      var m = {};
+      snap.docs.forEach(function(d){
+        var data = d.data()||{};
+        m[data.major || d.id] = Object.assign({}, data, {id:d.id});
+      });
+      S.guidelineDocs = m;
+      render();
+    }, function(err){ console.warn("guidelineDocs sub error", err); });
+    S.unsubs.push(unsub);
+  }
+  function subscribeGuidelineChunks(){
+    var unsub = S.db.collection("guidelineChunks").limit(60).onSnapshot(function(snap){
+      var byDoc = {};
+      snap.docs.forEach(function(d){
+        var data = d.data()||{};
+        var arr = byDoc[data.docId] || (byDoc[data.docId] = []);
+        arr[data.chunkIndex] = data.pages || [];
+      });
+      S.guidelineChunksByDoc = byDoc;
+      render();
+    }, function(err){ console.warn("guidelineChunks sub error", err); });
+    S.unsubs.push(unsub);
+  }
+  function subscribeGuidelineRevisions(){
+    var unsub = S.db.collection("guidelineRevisions").orderBy("uploadedAt","desc").limit(300).onSnapshot(function(snap){
+      var byMajor = {};
+      snap.docs.forEach(function(d){
+        var data = d.data()||{};
+        var arr = byMajor[data.major] || (byMajor[data.major] = []);
+        arr.push(Object.assign({}, data, {id:d.id}));
+      });
+      S.guidelineRevisions = byMajor;
+      render();
+    }, function(err){ console.warn("guidelineRevisions sub error", err); });
     S.unsubs.push(unsub);
   }
 
@@ -830,9 +892,7 @@
         +'<h1>안녕하세요, '+esc(name)+'님</h1>'
         +'<p>Lynn Standard는 건축예산팀 실행파트의 실행 편성 기준 변경사항을 확인하고 관리하는 곳이에요.</p>'
         +'<div class="welcome-role-note">현재 <b>조회자</b>로 등록되어 있어요. 신규 등록·승인 권한이 필요하면 파트장에게 설정 페이지에서 추가해달라고 요청해주세요.</div>'
-        +'<div class="f-field" style="text-align:left;margin-bottom:6px;"><label for="welcomeNameInput">화면에 표시될 이름 (선택)</label><input id="welcomeNameInput" type="text" placeholder="예: 김세림 대리" value="'+esc(name)+'"></div>'
-        +'<div style="font-size:11px;color:var(--ink-faint);text-align:left;margin-bottom:16px;">비워두면 "'+esc(name)+'"으로 표시돼요. 나중에 설정 페이지에서 바꿀 수 있어요.</div>'
-        +'<button class="btn accent" id="btnWelcomeStart" type="button" style="width:100%;">시작하기</button>'
+        +'<button class="btn accent" id="btnWelcomeStart" type="button" style="width:100%;margin-top:16px;">시작하기</button>'
       +'</div>'
     +'</div>';
   }
@@ -840,12 +900,7 @@
     var btn = document.getElementById("btnWelcomeStart");
     if(!btn) return;
     btn.addEventListener("click", function(){
-      var input = document.getElementById("welcomeNameInput");
-      var val = input ? (input.value||"").trim() : "";
       S.showWelcome = false;
-      if(val && val !== S.viewerName && S.db && S.viewerId){
-        S.db.doc("members/"+S.viewerId).update({ displayName: val }).catch(function(){});
-      }
       render();
     });
   }
@@ -853,9 +908,7 @@
   /* ============ shell (topbar + sidebar) ============ */
   function pendingCount(){ return S.changes.filter(function(c){ return c.status==="pending"; }).length; }
   function viewerDisplayName(){
-    var m = S.members && S.members[S.viewerId];
-    var d = m && m.displayName ? m.displayName.trim() : "";
-    return d || (S.viewerName || "");
+    return S.viewerName || "";
   }
 
   function shell(bodyHtml){
@@ -890,10 +943,16 @@
         +'<button class="pill tb" data-nav-month="'+ymOf(new Date())+'">이번달</button>'
         +'<button class="pill tb" data-nav="approvals">승인대기'+(pc>0?'<span class="badge">'+pc+'</span>':'')+'</button>'
         +'<button class="pill tb" data-nav="sites">현장현황</button>'
+        +'<button class="pill tb'+(S.docsearchOpen?' on':'')+'" id="docsearchToggleBtn" type="button">✦ 지침서 검색</button>'
         +(canWrite() ? '<button class="btn accent" data-nav="new">+ 신규 등록</button>' : '')
       +'</div>'
-      +'<div class="who" title="설정">'
-        +'<div data-nav="settings" style="cursor:pointer;"><div class="name" id="viewerNameSlot">'+esc(viewerDisplayName())+'</div><div class="role'+(S.isPartLeader?' lead':'')+'">'+(S.isPartLeader?'파트장':(S.isTeamMember?'팀원':'조회자'))+'</div></div>'
+      +'<div class="who">'
+        +'<button class="who-id" data-nav="settings" type="button" title="설정">'
+          +'<span class="who-avatar">'+esc((viewerDisplayName()||"?").slice(0,1))+'</span>'
+          +'<span class="name" id="viewerNameSlot">'+esc(viewerDisplayName())+'</span>'
+          +'<span class="role'+(S.isPartLeader?' lead':'')+'">'+(S.isPartLeader?'파트장':(S.isTeamMember?'팀원':'조회자'))+'</span>'
+        +'</button>'
+        +'<span class="who-divider"></span>'
         +'<button class="icon-btn" data-nav="settings" aria-label="설정"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 005 15a1.65 1.65 0 00-1.51-1H3.4a2 2 0 010-4h.09A1.65 1.65 0 005 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 5a1.65 1.65 0 001-1.51V3.4a2 2 0 014 0v.09A1.65 1.65 0 0015 5a1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1h.09a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg></button>'
         +'<button class="icon-btn" id="btnLogout" aria-label="로그아웃" title="로그아웃"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></button>'
       +'</div>'
@@ -905,6 +964,7 @@
       +'</details>'
       +'<div class="resize-handle" id="handleLeft" data-resize="left"></div>'
       +'<div class="content">'+bodyHtml+'</div>'
+      +(S.docsearchOpen ? '<div class="resize-handle" id="handleRight" data-resize="right"></div>'+docsearchPanelHtml() : '')
     +'</div>';
   }
 
@@ -912,7 +972,9 @@
     var root = document.getElementById("layoutRoot");
     if(!root) return;
     if(window.innerWidth <= 760) return; // mobile: CSS forces single column
-    root.style.gridTemplateColumns = S.sidebarW+"px 6px 1fr";
+    var cols = S.sidebarW+"px 6px 1fr";
+    if(S.docsearchOpen) cols += " 6px "+S.docsearchW+"px";
+    root.style.gridTemplateColumns = cols;
   }
 
   function wireShell(){
@@ -953,7 +1015,14 @@
       logoutBtn.disabled = true;
       S.sb.auth.signOut().then(function(){ location.hash = "#/"; }).catch(function(){ logoutBtn.disabled=false; });
     });
+    var dsBtn = document.getElementById("docsearchToggleBtn");
+    if(dsBtn) dsBtn.addEventListener("click", function(){
+      S.docsearchOpen = !S.docsearchOpen;
+      try{ localStorage.setItem("lynn_docsearchOpen", S.docsearchOpen?"1":"0"); }catch(e){}
+      render();
+    });
     wireResizeHandles();
+    if(S.docsearchOpen) wireDocsearchPanel();
   }
 
   function wireResizeHandles(){
@@ -970,6 +1039,7 @@
           document.removeEventListener("mouseup", up);
           try{
             localStorage.setItem("lynn_sidebarW", String(S.sidebarW));
+            localStorage.setItem("lynn_docsearchW", String(S.docsearchW));
           }catch(err){}
         }
         document.addEventListener("mousemove", move);
@@ -982,6 +1052,14 @@
       if(!root) return;
       var rootLeft = root.getBoundingClientRect().left;
       S.sidebarW = Math.max(150, Math.min(420, clientX - rootLeft));
+      applyLayoutWidths();
+    });
+    var hr = document.getElementById("handleRight");
+    if(hr) startDrag(hr, function(clientX){
+      var root = document.getElementById("layoutRoot");
+      if(!root) return;
+      var rootRight = root.getBoundingClientRect().right;
+      S.docsearchW = Math.max(260, Math.min(560, rootRight - clientX));
       applyLayoutWidths();
     });
   }
@@ -1049,7 +1127,7 @@
       banner = '<div class="banner">승인 대기 중인 항목이 '+pendingCount()+'건 있어요.<button class="btn ghost" data-nav="approvals">확인하기</button></div>';
     }
 
-    return head + statBar + banner + filterRow() + '<div id="listArea">'+listBody(monthYm)+'</div>';
+    return head + statBar + guidelineBaselineBannerHtml(monthYm) + banner + filterRow() + '<div id="listArea">'+listBody(monthYm)+'</div>';
   }
 
   function filterRow(){
@@ -1324,7 +1402,7 @@
       var id = n.getAttribute("data-uid");
       var m = S.members && S.members[id];
       var fallback = n.getAttribute("data-fallback") || "이름 비공개";
-      var live = m && (m.displayName || m.name);
+      var live = m && m.name;
       n.textContent = live || fallback;
     });
   }
@@ -1625,13 +1703,13 @@
       var seenLabel = m.firstSeenAt ? (fmtDate(m.firstSeenAt.slice(0,10),"day")+' 첫 방문') : '접속 대기중';
       return '<div class="roster-row"><span class="rname">'+(isMe?'<span style="color:var(--accent);">(나) </span>':'')+'<span class="uname" data-uid="'+esc(id)+'">…</span></span>'
         +'<span class="rmeta mono">'+seenLabel+'</span>'
-        +(S.canManageRoster ?
+        +(S.canManageRoster && !isMe ?
           '<div class="seg" data-role-seg="'+esc(id)+'">'
             +'<button data-role="조회자" class="'+(m.role!=="팀원"&&m.role!=="파트장"?"on":"")+'">조회자</button>'
             +'<button data-role="팀원" class="'+(m.role==="팀원"?"on":"")+'">팀원</button>'
             +'<button data-role="파트장" class="'+(m.role==="파트장"?"on":"")+'">파트장</button>'
           +'</div>'
-          : '<span class="chip neutral">'+esc(m.role==="팀원"||m.role==="파트장"?m.role:"조회자")+'</span>')
+          : '<span class="chip neutral"'+(isMe?' title="본인 역할은 여기서 바꿀 수 없어요. 다른 파트장에게 요청해주세요."':'')+'>'+esc(m.role==="팀원"||m.role==="파트장"?m.role:"조회자")+'</span>')
         +'</div>';
     }).join("");
 
@@ -1642,25 +1720,67 @@
       +'</div>'
       : "";
 
-    var myDisplayName = (S.members[S.viewerId] && S.members[S.viewerId].displayName) || "";
-    var myInfoBlock = '<div class="detail-card" style="margin-bottom:14px;">'
-      +'<h3 style="font-family:var(--font-d);font-size:14px;margin:0 0 4px;">내 정보</h3>'
-      +'<div class="meta" style="color:var(--ink-faint);font-size:12px;margin-bottom:10px;">상단에 표시될 이름을 원하는 형태로 입력하세요 (예: 김세림 대리). 비워두면 계정 이름인 "'+esc(S.viewerName||"")+'"이 표시돼요.</div>'
-      +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">'
-        +'<input type="text" id="myNameInput" placeholder="예: 김세림 대리" value="'+esc(myDisplayName)+'" style="flex:1 1 160px;min-width:0;padding:9px 11px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);">'
-        +'<button class="btn ghost" id="btnSaveMyName" type="button">저장</button>'
-      +'</div>'
-    +'</div>';
-
     return '<div class="detail">'
       +'<div class="content-head"><div><h1>설정</h1><div class="meta">팀 구성원 역할을 관리합니다. 처음 접속한 사람은 조회자로 등록되고, 파트장/관리자가 팀원·파트장으로 지정해야 신규등록·승인 권한이 생겨요.</div></div></div>'
-      + myInfoBlock
       +'<div class="detail-card">'
         +'<h3 style="font-family:var(--font-d);font-size:14px;margin:0 0 10px;">팀 구성 ('+ids.length+'명)</h3>'
         +(rows || '<div class="empty">아직 등록된 팀원이 없습니다.</div>')
         +'<div style="margin-top:16px;font-size:11.5px;color:var(--ink-faint);line-height:1.6;">역할 변경은 파트장 또는 관리자만 할 수 있어요.</div>'
       +'</div>'
+      + guidelineDocsSettingsHtml()
       + addNote
+    +'</div>';
+  }
+
+  function guidelineRevisionsFor(major){
+    return (S.guidelineRevisions[major] || []).slice().sort(function(a,b){
+      return (b.uploadedAt||"").localeCompare(a.uploadedAt||"");
+    });
+  }
+
+  function guidelineDocsSettingsHtml(){
+    var rows = MAJORS.map(function(major){
+      var doc = S.guidelineDocs[major];
+      var uploading = !!S.gdocUploading[major];
+      var pending = S.gdocPending[major];
+      var meta = doc
+        ? (esc(doc.fileName||"")+' · '+(doc.pageCount||0)+'페이지 · '+esc(doc.uploadedByName||"")+(doc.uploadedAt?' · <b>'+fmtDate(doc.uploadedAt.slice(0,10),"day")+'</b>':''))
+        : '아직 업로드되지 않았어요';
+      var control = "";
+      var pendingHtml = "";
+      if(S.canManageRoster){
+        if(pending){
+          control = '<label class="btn ghost" style="cursor:pointer;">파일 변경'
+            +'<input type="file" accept="application/pdf" data-gdoc-upload="'+esc(major)+'"'+(uploading?' disabled':'')+'></label>';
+          pendingHtml = '<div class="gdoc-pending-row">'
+            +'<span class="gdoc-pending-file">📄 '+esc(pending.file.name)+'</span>'
+            +'<input type="date" class="gdoc-date-input" data-gdoc-pending-date="'+esc(major)+'" value="'+esc(pending.date)+'" title="지침서 개정일" '+(uploading?'disabled':'')+'>'
+            +'<button class="btn" type="button" data-gdoc-save="'+esc(major)+'" style="padding:5px 12px;font-size:11.5px;"'+(uploading?' disabled':'')+'>'+(uploading?'저장 중…':'저장')+'</button>'
+            +'<button class="btn ghost" type="button" data-gdoc-cancel="'+esc(major)+'" style="padding:5px 12px;font-size:11.5px;"'+(uploading?' disabled':'')+'>취소</button>'
+          +'</div>';
+        } else {
+          control = '<label class="btn ghost" style="cursor:pointer;">'+(doc?'교체':'업로드')
+            +'<input type="file" accept="application/pdf" data-gdoc-upload="'+esc(major)+'"></label>';
+        }
+      }
+      var revs = guidelineRevisionsFor(major);
+      var historyHtml = "";
+      if(revs.length){
+        historyHtml = '<details class="gdoc-history">'
+          +'<summary>변경 이력 ('+revs.length+'건)</summary>'
+          + revs.map(function(r){
+              return '<div class="gdoc-history-row"><span class="mono">'+fmtDate((r.uploadedAt||"").slice(0,10),"day")+'판</span><span class="gdoc-history-file">'+esc(r.fileName||"")+'</span><span class="gdoc-history-by">'+esc(r.uploadedByName||"")+'</span>'
+                +(S.canManageRoster ? '<button class="gdoc-history-del" type="button" data-gdoc-revdelete="'+esc(r.id)+'" title="이 이력 삭제">✕</button>' : '')
+              +'</div>';
+            }).join("")
+        +'</details>';
+      }
+      return '<div class="gdoc-row"><span class="gname">'+esc(major)+'</span><span class="gmeta">'+meta+'</span>'+control+pendingHtml+historyHtml+'</div>';
+    }).join("");
+    return '<div class="detail-card" style="margin-top:14px;">'
+      +'<h3 style="font-family:var(--font-d);font-size:14px;margin:0 0 4px;">실행지침서 (PDF)</h3>'
+      +'<div class="meta" style="color:var(--ink-faint);font-size:12px;margin-bottom:8px;">지침서가 개정될 때마다 새 PDF로 교체해주세요. "업로드/교체"로 파일을 선택한 뒤 개정일을 지정하고 저장을 눌러주세요. 날짜는 실제 지침서의 개정일(문서에 적힌 날짜)로 맞춰주세요 — "실행지침서 최신 개정 기준선" 표시의 기준이 돼요.'+(S.canManageRoster?'':' 업로드·교체는 파트장만 할 수 있어요.')+'</div>'
+      + rows
     +'</div>';
   }
 
@@ -1669,18 +1789,16 @@
     return S.db.doc("members/"+id).update({ role: role });
   }
 
+  function deleteGuidelineRevision(revId){
+    if(!S.db){ toast("저장 기능을 사용할 수 없습니다."); return; }
+    if(!confirm("이 지침서 변경 이력을 삭제할까요? 되돌릴 수 없어요.")) return;
+    S.db.doc("guidelineRevisions/"+revId).delete()
+      .then(function(){ toast("이력이 삭제되었습니다."); })
+      .catch(function(err){ console.warn(err); toast("삭제 중 오류가 발생했습니다."); });
+  }
+
   function wireSettings(){
     resolveNames();
-    var nameBtn = document.getElementById("btnSaveMyName");
-    if(nameBtn){
-      nameBtn.addEventListener("click", function(){
-        if(!S.db || !S.viewerId){ toast("저장 기능을 사용할 수 없습니다."); return; }
-        var val = (document.getElementById("myNameInput").value || "").trim();
-        S.db.doc("members/"+S.viewerId).update({ displayName: val })
-          .then(function(){ toast("저장되었습니다."); })
-          .catch(function(err){ console.warn(err); toast("저장 중 오류가 발생했습니다."); });
-      });
-    }
     if(!S.canManageRoster) return;
     document.querySelectorAll("[data-role-seg]").forEach(function(seg){
       var id = seg.getAttribute("data-role-seg");
@@ -1692,9 +1810,415 @@
         });
       });
     });
+    document.querySelectorAll("[data-gdoc-upload]").forEach(function(input){
+      input.addEventListener("change", function(){
+        var major = input.getAttribute("data-gdoc-upload");
+        var file = input.files && input.files[0];
+        input.value = "";
+        if(!file) return;
+        if(!/\.pdf$/i.test(file.name)){ toast("PDF 파일만 업로드할 수 있어요."); return; }
+        var existing = S.guidelineDocs[major];
+        var defaultDate = (existing && existing.uploadedAt) ? existing.uploadedAt.slice(0,10) : nowIso().slice(0,10);
+        S.gdocPending[major] = { file: file, date: defaultDate };
+        render();
+      });
+    });
+    document.querySelectorAll("[data-gdoc-pending-date]").forEach(function(input){
+      input.addEventListener("change", function(){
+        var major = input.getAttribute("data-gdoc-pending-date");
+        if(S.gdocPending[major]) S.gdocPending[major].date = input.value;
+      });
+    });
+    document.querySelectorAll("[data-gdoc-save]").forEach(function(btn){
+      btn.addEventListener("click", function(){
+        var major = btn.getAttribute("data-gdoc-save");
+        var pending = S.gdocPending[major];
+        if(!pending) return;
+        uploadGuidelineDoc(major, pending.file, pending.date);
+      });
+    });
+    document.querySelectorAll("[data-gdoc-cancel]").forEach(function(btn){
+      btn.addEventListener("click", function(){
+        var major = btn.getAttribute("data-gdoc-cancel");
+        delete S.gdocPending[major];
+        render();
+      });
+    });
+    document.querySelectorAll("[data-gdoc-revdelete]").forEach(function(btn){
+      btn.addEventListener("click", function(){
+        deleteGuidelineRevision(btn.getAttribute("data-gdoc-revdelete"));
+      });
+    });
   }
 
-  /* AI 검색 기능은 이 버전에서는 제외했습니다 (자체 AI API 키 + 서버리스 프록시가 필요해서 나중에 별도로 추가할 수 있어요). */
+  /* ============ 실행지침서 PDF 검색 ============ */
+  // PDF는 pdf.js로 업로드 시점에 페이지별 텍스트를 미리 뽑아 index(=[{page,text}])로 저장해두고,
+  // 검색은 그 index를 클라이언트에서 훑는 방식이라 별도 서버/AI 키가 필요없다.
+  function extractPdfIndex(arrayBuffer){
+    return window.pdfjsLib.getDocument({ data: arrayBuffer }).promise.then(function(pdf){
+      var numPages = pdf.numPages;
+      var index = [];
+      var chain = Promise.resolve();
+      var _loop = function(pageNum){
+        chain = chain.then(function(){
+          return pdf.getPage(pageNum).then(function(page){
+            return page.getTextContent().then(function(tc){
+              var text = tc.items.map(function(it){ return it.str; }).join(" ").replace(/\s+/g," ").trim();
+              index.push({ page: pageNum, text: text });
+            });
+          });
+        });
+      };
+      for(var n=1;n<=numPages;n++){ _loop(n); }
+      return chain.then(function(){ return { pageCount: numPages, index: index }; });
+    });
+  }
+
+  // 문서 하나(특히 200페이지 안팎의 건축 지침서)의 페이지별 텍스트를 통째로 문서 1개에 넣으면
+  // db 문서 1개당 용량 제한을 넘을 수 있어서, 페이지들을 용량 기준으로 여러 조각(chunk)으로 나눠
+  // guidelineChunks 컬렉션에 나눠 저장하고 읽을 때 다시 합친다.
+  function byteLen(s){
+    if(typeof TextEncoder !== "undefined"){ return new TextEncoder().encode(s).length; }
+    var n = 0;
+    for(var i=0;i<s.length;i++){ n += s.charCodeAt(i) > 127 ? 3 : 1; }
+    return n;
+  }
+  function chunkPagesByBudget(pages, budgetBytes){
+    var chunks = []; var cur = []; var curBytes = 40;
+    pages.forEach(function(pg){
+      var entryBytes = byteLen(pg.text||"") + 24;
+      if(cur.length && curBytes + entryBytes > budgetBytes){
+        chunks.push(cur); cur = []; curBytes = 40;
+      }
+      cur.push(pg); curBytes += entryBytes;
+    });
+    if(cur.length) chunks.push(cur);
+    return chunks;
+  }
+  function guidelinePagesFor(major){
+    var docId = MAJOR_ID[major] || major;
+    var chunks = S.guidelineChunksByDoc[docId] || [];
+    var pages = [];
+    chunks.forEach(function(arr){ if(arr) pages = pages.concat(arr); });
+    return pages;
+  }
+
+  function guidelineHasAnyDocs(){
+    return MAJORS.some(function(m){ return guidelinePagesFor(m).length > 0; });
+  }
+
+  /* ============ 지침서 개정 기준선 (guideline revision baseline) ============
+     지침서는 반기에 한 번 정도만 개정되고, 이 사이트는 그때마다 다시 배포할 수 없어서,
+     "최신 지침서가 언제 개정됐는지"를 기준선으로 삼아 그 이후 쌓인 변경사항을 구분해서 보여준다. */
+  function guidelineBaselineDate(major){
+    var doc = S.guidelineDocs[major];
+    return (doc && doc.uploadedAt) ? doc.uploadedAt.slice(0,10) : null;
+  }
+  function guidelineBaselineBannerHtml(monthYm){
+    if(monthYm) return "";
+    var majorsToShow = S.filters.major ? [S.filters.major] : MAJORS;
+    var chips = majorsToShow.map(function(m){
+      var base = guidelineBaselineDate(m);
+      if(!base) return null;
+      return '<span class="chip gbase-chip">'+esc(m)+' '+fmtDate(base,"day")+' 개정</span>';
+    }).filter(Boolean);
+    if(!chips.length) return "";
+    return '<div class="gbase-row"><span class="gbase-label">실행지침서 최신 개정 기준선</span>'+chips.join(" ")+'</div>';
+  }
+
+  function uploadGuidelineDoc(major, file, revisionDate){
+    if(!S.db){ toast("저장 기능을 사용할 수 없습니다."); return; }
+    if(!window.pdfjsLib){ toast("PDF 처리 기능을 사용할 수 없습니다."); return; }
+    if(!/\.pdf$/i.test(file.name)){ toast("PDF 파일만 업로드할 수 있어요."); return; }
+    // 개정일을 직접 지정하면 그 날짜를, 비워두면 업로드 시각을 기준선으로 사용한다.
+    var uploadedAt = (revisionDate && /^\d{4}-\d{2}-\d{2}$/.test(revisionDate)) ? (revisionDate+"T00:00:00.000Z") : nowIso();
+    var docId = MAJOR_ID[major] || major;
+    var prevChunkCount = (S.guidelineDocs[major] && S.guidelineDocs[major].chunkCount) || 0;
+    S.gdocUploading[major] = true; render();
+    toast(major+" 지침서를 분석하는 중… (페이지가 많으면 시간이 좀 걸려요)");
+    var extracted;
+    readFileArrayBuffer(file).then(function(buf){
+      return extractPdfIndex(buf);
+    }).then(function(res){
+      extracted = res;
+      var path = "guideline_"+encodeURIComponent(major)+"_"+Date.now()+".pdf";
+      if(S.assets){
+        return S.assets.upload(file, {type:"application/pdf"}).then(function(r){ return r.url; });
+      }
+      return S.sb.storage.from("guidelines").upload(path, file, { contentType:"application/pdf", upsert:true }).then(function(r){
+        if(r.error) throw r.error;
+        return S.sb.storage.from("guidelines").getPublicUrl(path).data.publicUrl;
+      });
+    }).then(function(url){
+      var chunks = chunkPagesByBudget(extracted.index, 180000);
+      var writes = chunks.map(function(pages, i){
+        return S.db.doc("guidelineChunks/"+docId+"_"+i).set({ docId: docId, chunkIndex: i, pages: pages });
+      });
+      return Promise.all(writes).then(function(){
+        var cleanups = [];
+        for(var i=chunks.length; i<prevChunkCount; i++){
+          cleanups.push(S.db.doc("guidelineChunks/"+docId+"_"+i).delete().catch(function(){}));
+        }
+        return Promise.all(cleanups).then(function(){
+          return S.db.doc("guidelineDocs/"+docId).set({
+            major: major, fileName: file.name, url: url, pageCount: extracted.pageCount, chunkCount: chunks.length,
+            uploadedById: S.viewerId, uploadedByName: S.viewerName||"", uploadedAt: uploadedAt
+          });
+        }).then(function(){
+          // 업로드할 때마다 별도의 이력 레코드도 남겨서, 나중에 "몇 번 개정됐는지" / "어떤 판이 있었는지"를
+          // 설정 페이지에서 확인하고, 현장별로 과거 판을 선택해서 기록할 수 있게 한다.
+          var revId = docId+"_r"+Date.now();
+          return S.db.doc("guidelineRevisions/"+revId).set({
+            docId: docId, major: major, fileName: file.name, url: url, pageCount: extracted.pageCount,
+            uploadedById: S.viewerId, uploadedByName: S.viewerName||"", uploadedAt: uploadedAt, createdAt: nowIso()
+          }).catch(function(err){
+            console.warn("guideline revision write failed", err);
+            toast("지침서는 반영됐지만, 변경 이력 저장에는 실패했어요.");
+          });
+        });
+      });
+    }).then(function(){
+      S.gdocUploading[major] = false;
+      delete S.gdocPending[major];
+      toast(major+" 지침서가 업데이트되었습니다 ("+extracted.pageCount+"페이지).");
+      render();
+    }).catch(function(err){
+      console.warn(err);
+      S.gdocUploading[major] = false;
+      toast(major+" 지침서 업로드 중 오류가 발생했습니다.");
+      render();
+    });
+  }
+
+  function docsearchRun(q){
+    q = (q||"").trim();
+    if(!q){ S.docsearchResults = []; return; }
+    var tokens = q.toLowerCase().split(/\s+/).filter(Boolean);
+    var results = [];
+    MAJORS.forEach(function(major){
+      var pages = guidelinePagesFor(major);
+      pages.forEach(function(pg){
+        var hay = (pg.text||"").toLowerCase();
+        var allMatch = tokens.every(function(t){ return hay.indexOf(t) !== -1; });
+        if(!allMatch) return;
+        var score = 0;
+        tokens.forEach(function(t){
+          var idx = 0;
+          while(true){ idx = hay.indexOf(t, idx); if(idx===-1) break; score++; idx += t.length; }
+        });
+        results.push({ major: major, page: pg.page, text: pg.text, score: score });
+      });
+    });
+    results.sort(function(a,b){ return b.score - a.score || a.major.localeCompare(b.major,"ko") || a.page-b.page; });
+    S.docsearchResults = results.slice(0, 60);
+  }
+
+  function docsearchSnippet(text, tokens){
+    var hay = text.toLowerCase();
+    var firstIdx = -1;
+    tokens.forEach(function(t){
+      var idx = hay.indexOf(t);
+      if(idx!==-1 && (firstIdx===-1 || idx<firstIdx)) firstIdx = idx;
+    });
+    if(firstIdx===-1) firstIdx = 0;
+    var start = Math.max(0, firstIdx - 40);
+    var end = Math.min(text.length, firstIdx + 140);
+    var snippet = (start>0?"…":"") + text.slice(start,end) + (end<text.length?"…":"");
+    var escaped = esc(snippet);
+    tokens.forEach(function(t){
+      if(!t) return;
+      var re = new RegExp("("+t.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+")","gi");
+      escaped = escaped.replace(re, "<mark>$1</mark>");
+    });
+    return escaped;
+  }
+
+  function docsearchResultsHtml(){
+    if(!guidelineHasAnyDocs()){
+      return '<div class="docsearch-empty">아직 등록된 실행지침서가 없어요.'+(S.canManageRoster?' 설정 페이지에서 PDF를 업로드해주세요.':' 파트장에게 설정 페이지에서 업로드를 요청해주세요.')+'</div>';
+    }
+    if(!S.docsearchQuery.trim()){
+      var chips = MAJORS.filter(function(m){ return S.guidelineDocs[m]; }).map(function(m){
+        return '<span class="chip neutral">'+esc(m)+' '+(S.guidelineDocs[m].pageCount||0)+'p</span>';
+      }).join("");
+      return '<div class="docsearch-empty">지침서 내용을 검색해보세요.<div class="docsearch-doclist">'+chips+'</div></div>';
+    }
+    if(!S.docsearchResults.length){
+      return '<div class="docsearch-empty">"'+esc(S.docsearchQuery)+'"에 대한 검색 결과가 없어요.</div>';
+    }
+    var tokens = S.docsearchQuery.toLowerCase().split(/\s+/).filter(Boolean);
+    var html = '<div class="docsearch-count">'+S.docsearchResults.length+'건</div>';
+    html += S.docsearchResults.map(function(r,i){
+      return '<button class="docsearch-result" type="button" data-open-doc="'+i+'">'
+        +'<div class="rmeta"><span class="rdoc">'+esc(r.major)+'</span><span class="rpage">'+r.page+'페이지</span></div>'
+        +'<div class="rsnippet">'+docsearchSnippet(r.text, tokens)+'</div>'
+      +'</button>';
+    }).join("");
+    return html;
+  }
+
+  function docsearchPanelHtml(){
+    var body;
+    if(S.docsearchViewer) body = docsearchViewerHtml();
+    else body = '<div class="docsearch-searchbar"><input id="docsearchInput" type="text" placeholder="예: 에폭시, 주차장 바닥" value="'+esc(S.docsearchQuery)+'"></div>'
+      +'<div class="docsearch-body" id="docsearchBody">'+docsearchResultsHtml()+'</div>';
+    return '<div class="docsearch-panel">'
+      +'<div class="docsearch-head"><span class="t">✦ 지침서 검색</span><button class="icon-btn" id="docsearchCloseBtn" aria-label="닫기" style="width:26px;height:26px;">✕</button></div>'
+      + body
+    +'</div>';
+  }
+
+  function docsearchViewerHtml(){
+    var v = S.docsearchViewer;
+    var doc = S.guidelineDocs[v.major];
+    var title = v.major + ' · ' + v.page + '/' + (doc?doc.pageCount:'?') + '페이지';
+    return '<div class="docsearch-viewer">'
+      +'<div class="docsearch-viewer-head"><button class="back" id="docsearchBackBtn" type="button">&larr; 검색결과</button><span class="vt">'+esc(title)+'</span>'
+        +(doc && doc.url ? '<a class="docsearch-viewer-openlink" href="'+doc.url+'#page='+v.page+'" target="_blank" rel="noopener">새 창 ↗</a>' : '')
+      +'</div>'
+      +'<div class="docsearch-viewer-nav">'
+        +'<button class="icon-btn" id="docsearchPrevBtn" style="width:26px;height:26px;" aria-label="이전 페이지"'+(v.page<=1?' disabled':'')+'>&larr;</button>'
+        +'<span class="pg mono">'+v.page+' / '+(doc?doc.pageCount:'?')+'</span>'
+        +'<button class="icon-btn" id="docsearchNextBtn" style="width:26px;height:26px;" aria-label="다음 페이지"'+(doc&&v.page>=doc.pageCount?' disabled':'')+'>&rarr;</button>'
+      +'</div>'
+      +'<div class="docsearch-viewer-host" id="docsearchViewerHost"><div style="padding:14px;font-size:12px;color:var(--ink-faint);">불러오는 중…</div></div>'
+      +'<div class="mag-hint avail">🔍 마우스를 올리면 확대해서 볼 수 있어요</div>'
+    +'</div>';
+  }
+
+  function getPdfDocProxy(major, url){
+    if(!S.pdfCache[major]){
+      S.pdfCache[major] = window.pdfjsLib.getDocument(url).promise;
+    }
+    return S.pdfCache[major];
+  }
+
+  // 지침서 PDF는 위아래·좌우 여백이 넓어서 그대로 렌더링하면 실제 내용(표 등)이 작게 보인다.
+  // 돋보기로 확대해서 보는 대신, 렌더링된 캔버스에서 거의 흰색인 여백을 찾아 잘라내
+  // 내용만 화면 너비에 꽉 차게 보이도록 한다. 픽셀 전체를 훑으면 느리므로, 작은 축소본에서
+  // 여백 경계를 찾은 뒤 원본 해상도 좌표로 환산해서 잘라낸다.
+  function cropCanvasToContent(canvas){
+    var W = canvas.width, H = canvas.height;
+    if(!W || !H) return canvas;
+    var sampleW = 240;
+    var sampleH = Math.max(1, Math.round(H * (sampleW / W)));
+    var sc = document.createElement("canvas");
+    sc.width = sampleW; sc.height = sampleH;
+    var sctx = sc.getContext("2d");
+    sctx.drawImage(canvas, 0, 0, sampleW, sampleH);
+    var data;
+    try{ data = sctx.getImageData(0, 0, sampleW, sampleH).data; }catch(e){ return canvas; }
+    var minX = sampleW, minY = sampleH, maxX = 0, maxY = 0, found = false;
+    var threshold = 248; // 이보다 어두운 픽셀이 있으면 "내용"으로 간주 (거의 흰색은 여백)
+    for(var y=0; y<sampleH; y++){
+      for(var x=0; x<sampleW; x++){
+        var idx = (y*sampleW+x)*4;
+        if(data[idx] < threshold || data[idx+1] < threshold || data[idx+2] < threshold){
+          found = true;
+          if(x < minX) minX = x;
+          if(x > maxX) maxX = x;
+          if(y < minY) minY = y;
+          if(y > maxY) maxY = y;
+        }
+      }
+    }
+    if(!found) return canvas;
+    var sx = W / sampleW, sy = H / sampleH;
+    var padX = Math.round((maxX-minX+1) * sx * 0.02) + 6;
+    var padY = Math.round((maxY-minY+1) * sy * 0.02) + 6;
+    var cx0 = Math.max(0, Math.round(minX*sx) - padX);
+    var cy0 = Math.max(0, Math.round(minY*sy) - padY);
+    var cx1 = Math.min(W, Math.round((maxX+1)*sx) + padX);
+    var cy1 = Math.min(H, Math.round((maxY+1)*sy) + padY);
+    var cw = cx1-cx0, ch = cy1-cy0;
+    if(cw <= 0 || ch <= 0) return canvas;
+    var out = document.createElement("canvas");
+    out.width = cw; out.height = ch;
+    out.getContext("2d").drawImage(canvas, cx0, cy0, cw, ch, 0, 0, cw, ch);
+    return out;
+  }
+
+  function renderSinglePdfPage(container, major, url, pageNum){
+    if(!window.pdfjsLib){ container.innerHTML = '<div style="padding:14px;font-size:12px;color:var(--ink-faint);">PDF 미리보기를 사용할 수 없습니다.</div>'; return; }
+    getPdfDocProxy(major, url).then(function(pdf){
+      return pdf.getPage(pageNum);
+    }).then(function(page){
+      if(!document.body.contains(container)) return;
+      var hostWidth = container.clientWidth || 300;
+      var baseViewport = page.getViewport({ scale: 1 });
+      var fitScale = hostWidth / baseViewport.width;
+      var dpr = Math.min(window.devicePixelRatio || 1, 2);
+      // 여백을 잘라내고 나면 남은 내용이 화면 너비에 맞춰 더 확대되어 보이므로,
+      // 그만큼 더 촘촘한 해상도로 렌더링해둬야 잘라낸 뒤에도 흐려 보이지 않는다.
+      var scale = Math.min(7, fitScale * dpr * 3);
+      var viewport = page.getViewport({ scale: scale });
+      var canvas = document.createElement("canvas");
+      canvas.width = viewport.width; canvas.height = viewport.height;
+      var ctx = canvas.getContext("2d");
+      return page.render({ canvasContext: ctx, viewport: viewport }).promise.then(function(){
+        if(!document.body.contains(container)) return;
+        var shown = cropCanvasToContent(canvas);
+        container.innerHTML = "";
+        container.appendChild(shown);
+        // 잘라낸 뒤에도 세부 내용을 더 자세히 보고 싶을 수 있어 돋보기를 다시 붙이되,
+        // 확대 비율은 낮춰서(1.6배) 첨부파일 돋보기(2.4배)보다 더 넓은 범위가 보이게 한다.
+        try{ attachMagnifier(shown, shown.toDataURL(), 1.6); }catch(e){}
+      });
+    }).catch(function(err){
+      console.warn("guideline pdf render failed", err);
+      if(document.body.contains(container)){
+        container.innerHTML = '<div style="padding:14px;font-size:12px;color:var(--ink-faint);">PDF를 불러오지 못했습니다.</div>';
+      }
+    });
+  }
+
+  function openDocsearchPage(major, page){
+    var doc = S.guidelineDocs[major];
+    if(!doc) return;
+    page = Math.max(1, Math.min(doc.pageCount||page, page));
+    S.docsearchViewer = { major: major, page: page };
+    render();
+  }
+
+  function wireDocsearchResults(){
+    document.querySelectorAll("[data-open-doc]").forEach(function(btn){
+      btn.addEventListener("click", function(){
+        var r = S.docsearchResults[+btn.getAttribute("data-open-doc")];
+        if(r) openDocsearchPage(r.major, r.page);
+      });
+    });
+  }
+
+  function wireDocsearchPanel(){
+    var closeBtn = document.getElementById("docsearchCloseBtn");
+    if(closeBtn) closeBtn.addEventListener("click", function(){
+      S.docsearchOpen = false;
+      try{ localStorage.setItem("lynn_docsearchOpen","0"); }catch(e){}
+      render();
+    });
+    if(S.docsearchViewer){
+      var backBtn = document.getElementById("docsearchBackBtn");
+      if(backBtn) backBtn.addEventListener("click", function(){ S.docsearchViewer = null; render(); });
+      var prevBtn = document.getElementById("docsearchPrevBtn");
+      if(prevBtn) prevBtn.addEventListener("click", function(){ openDocsearchPage(S.docsearchViewer.major, S.docsearchViewer.page-1); });
+      var nextBtn = document.getElementById("docsearchNextBtn");
+      if(nextBtn) nextBtn.addEventListener("click", function(){ openDocsearchPage(S.docsearchViewer.major, S.docsearchViewer.page+1); });
+      var host = document.getElementById("docsearchViewerHost");
+      var doc = S.guidelineDocs[S.docsearchViewer.major];
+      if(host && doc && doc.url) renderSinglePdfPage(host, S.docsearchViewer.major, doc.url, S.docsearchViewer.page);
+      return;
+    }
+    var input = document.getElementById("docsearchInput");
+    if(input){
+      input.addEventListener("input", function(){
+        S.docsearchQuery = input.value;
+        docsearchRun(S.docsearchQuery);
+        var bodyEl = document.getElementById("docsearchBody");
+        if(bodyEl){ bodyEl.innerHTML = docsearchResultsHtml(); wireDocsearchResults(); }
+      });
+    }
+    wireDocsearchResults();
+  }
 
   /* ============ site compliance (현장별 실행 반영 체크) ============ */
   function siteRelevantChanges(s){
@@ -1709,6 +2233,91 @@
     var map = s.appliedMap || {};
     var applied = rel.before.filter(function(c){ return !!map[c.id]; }).length;
     return { applied: applied, total: rel.before.length, afterCount: rel.after.length };
+  }
+
+  /* ============ 현장별 "어느 시점 지침서가 반영됐는지" 표시 ============
+     지침서 개정일(guideline_docs.uploaded_at)을 그 현장에 스탬프로 기록해두면,
+     나중에 지침서가 또 개정됐을 때 이 현장이 최신 지침서를 따라가고 있는지 바로 알 수 있다. */
+  function siteGuidelineOverallStatus(s){
+    var applied = s.appliedGuidelines || {};
+    var recorded = MAJORS.filter(function(m){ return !!applied[m]; });
+    if(!recorded.length) return "unset";
+    var stale = recorded.some(function(m){
+      var base = guidelineBaselineDate(m);
+      return base && applied[m].slice(0,10) < base;
+    });
+    return stale ? "stale" : "current";
+  }
+  function siteGuidelineStatusHtml(s){
+    var applied = s.appliedGuidelines || {};
+    return MAJORS.map(function(m){
+      var doc = S.guidelineDocs[m];
+      if(!doc) return "";
+      var at = applied[m];
+      if(!at) return '<span class="chip neutral">'+esc(m)+' 미기록</span>';
+      var base = guidelineBaselineDate(m);
+      var stale = base && at.slice(0,10) < base;
+      return '<span class="chip '+(stale?"pending":"approved")+'" title="'+(stale?'이후 지침서가 개정됐어요 (최신 '+esc(base)+')':'최신 지침서 기준')+'">'+esc(m)+' '+fmtDate(at.slice(0,10),"day")+'판'+(stale?' · 구버전':'')+'</span>';
+    }).join("");
+  }
+  // 현장별로 어느 판(개정일)의 지침서가 반영됐는지, 과거 변경 이력 중에서 직접 골라 기록할 수 있게 한다.
+  // "공통가설 26.08.18 판 / 건축 26.09.21판 / 현장관리비 26.09.21판" 처럼 한 줄에 들어오도록
+  // 공종마다 칩 대신 짧은 라벨 + 드롭다운으로 구성하고, 옵션에서도 파일명은 빼고 판(날짜)만 보여준다.
+  function siteGuidelineControlsHtml(s){
+    var applied = s.appliedGuidelines || {};
+    var items = MAJORS.map(function(m){
+      var doc = S.guidelineDocs[m];
+      if(!doc) return null;
+      var revs = guidelineRevisionsFor(m);
+      if(!revs.length && doc.uploadedAt){
+        revs = [{ uploadedAt: doc.uploadedAt, fileName: doc.fileName }];
+      }
+      var at = applied[m];
+      var base = guidelineBaselineDate(m);
+      var stale = !!(at && base && at.slice(0,10) < base);
+      var statusClass = !at ? "neutral" : (stale ? "pending" : "approved");
+      var options = '<option value=""'+(!at?' selected':'')+'>미기록</option>' + revs.map(function(r){
+        var d = (r.uploadedAt||"").slice(0,10);
+        var sel = (at && at.slice(0,10)===d) ? ' selected' : '';
+        return '<option value="'+esc(r.uploadedAt)+'"'+sel+' title="'+esc(r.fileName||"")+'">'+fmtDate(d,"day")+'판</option>';
+      }).join("");
+      var hint = stale ? ' title="최신 지침서가 개정됐어요 (최신 '+esc(base)+')"' : '';
+      return '<span class="gapply-item gs-'+statusClass+'"'+hint+'><b class="gapply-mname">'+esc(m)+'</b>'
+        +'<select class="gapply-select" data-gapply-major="'+esc(m)+'"'+(canWrite()?'':' disabled')+'>'+options+'</select>'
+      +'</span>';
+    }).filter(Boolean);
+    return items.join("");
+  }
+  function stampSiteGuideline(siteId){
+    if(!S.db){ toast("저장 기능을 사용할 수 없습니다."); return; }
+    var applied = {};
+    MAJORS.forEach(function(m){
+      var doc = S.guidelineDocs[m];
+      if(doc && doc.uploadedAt) applied[m] = doc.uploadedAt;
+    });
+    if(!Object.keys(applied).length){ toast("아직 등록된 지침서가 없어요."); return; }
+    S.db.doc("sites/"+siteId).update({
+      appliedGuidelines: applied, updatedById:S.viewerId, updatedByName:S.viewerName||"", updatedAt: nowIso()
+    }).then(function(){ toast("현재 지침서 기준으로 기록했습니다."); })
+      .catch(function(err){ console.warn(err); toast("저장 중 오류가 발생했습니다."); });
+  }
+  function stampSiteGuidelineMajor(siteId, major, uploadedAt){
+    if(!S.db){ toast("저장 기능을 사용할 수 없습니다."); return; }
+    var s = S.sites.find(function(x){ return x.id===siteId; });
+    var applied = Object.assign({}, (s && s.appliedGuidelines) || {});
+    if(uploadedAt) applied[major] = uploadedAt; else delete applied[major];
+    S.db.doc("sites/"+siteId).update({
+      appliedGuidelines: applied, updatedById:S.viewerId, updatedByName:S.viewerName||"", updatedAt: nowIso()
+    }).then(function(){ toast(major+" 적용 지침서 판을 저장했습니다."); })
+      .catch(function(err){ console.warn(err); toast("저장 중 오류가 발생했습니다."); });
+  }
+  function setSiteManager(siteId, memberId){
+    if(!S.db){ toast("저장 기능을 사용할 수 없습니다."); return; }
+    var name = memberId ? ((S.members[memberId] && S.members[memberId].name) || "") : "";
+    S.db.doc("sites/"+siteId).update({
+      managerId: memberId||"", managerName: name, updatedById:S.viewerId, updatedByName:S.viewerName||"", updatedAt: nowIso()
+    }).then(function(){ toast("담당자가 저장되었습니다."); })
+      .catch(function(err){ console.warn(err); toast("저장 중 오류가 발생했습니다."); });
   }
 
   function viewSites(){
@@ -1732,6 +2341,7 @@
       return '<button class="row" data-open-site="'+s.id+'">'
         +'<span class="rowdate mono">'+(s.deadline ? fmtDate(s.deadline, precision) : "마감일 미설정")+'</span>'
         +'<div class="rowmain"><div class="rowtitle">'+esc(s.name)+'</div></div>'
+        +(s.managerName ? '<span class="chip neutral">👤 '+esc(s.managerName)+'</span>' : '')
         +(stat.afterCount>0 ? '<span class="chip neutral">마감 후 '+stat.afterCount+'건</span>' : '')
         +(remain>0 ? '<span class="chip pending">미반영 '+remain+'건</span>' : '<span class="chip approved">모두 반영</span>')
       +'</button>';
@@ -1820,13 +2430,32 @@
         + ((S.isPartLeader||S.isOwner) ? '<button class="btn ghost" id="btnReopenSite" type="button">다시 열기</button>' : '');
     }
 
+    var managerOptions = '<option value="">미지정</option>' + Object.keys(S.members).map(function(mid){
+      return { id: mid, name: (S.members[mid].name || "이름 비공개") };
+    }).sort(function(a,b){ return a.name.localeCompare(b.name,"ko"); }).map(function(x){
+      return '<option value="'+esc(x.id)+'"'+(s.managerId===x.id?' selected':'')+'>'+esc(x.name)+'</option>';
+    }).join("");
+
     var controlCard = '<div class="detail-card site-control-row">'
       +'<label for="s-deadline-edit">실행 마감일</label>'
       +'<input id="s-deadline-edit" type="date" value="'+esc(s.deadline||"")+'"'+(deadlineEditable?'':' disabled')+'>'
       +(deadlineEditable ? '<button class="btn ghost" id="saveSiteDeadline" type="button">저장</button>' : '')
+      +'<label for="s-manager-edit">담당자</label>'
+      +'<select id="s-manager-edit"'+(canWrite()?'':' disabled')+'>'+managerOptions+'</select>'
       +'<span class="row-spacer"></span>'
       +actionHtml
     +'</div>';
+
+    var guidelineCard = "";
+    if(guidelineHasAnyDocs()){
+      guidelineCard = '<div class="detail-card" style="margin-top:12px;margin-bottom:16px;padding:14px 14px;">'
+        +'<h3 style="font-family:var(--font-d);font-size:12.5px;margin:0 0 7px;color:var(--ink-soft);">이 현장에 적용된 지침서 시점</h3>'
+        +'<div class="gapply-row-wrap">'
+          +'<div class="gapply-line">' + siteGuidelineControlsHtml(s) + '</div>'
+          + (canWrite() ? '<button class="btn" id="stampSiteGuidelineBtn" type="button">현재 지침서 기준으로 한번에 기록</button>' : '')
+        +'</div>'
+      +'</div>';
+    }
 
     var afterCount = rel.after.length;
     var tabsHtml = "";
@@ -1869,6 +2498,7 @@
       +'<a class="back-link" href="#/sites">&larr; 현장 목록으로</a>'
       +'<div class="content-head"><div><h1>'+esc(s.name)+'</h1><div class="meta">실행편성 때 반영한 기준을 체크하세요. 체크한 내용은 자동 저장돼요.</div></div></div>'
       +controlCard
+      +guidelineCard
       +tabsHtml
       +afterNote
       +progress
@@ -1931,6 +2561,17 @@
       S.db.doc("sites/"+id).update({ deadline: val, updatedById:S.viewerId, updatedByName:S.viewerName||"", updatedAt: nowIso() })
         .then(function(){ toast("저장되었습니다."); })
         .catch(function(err){ console.warn(err); toast("저장 중 오류가 발생했습니다."); });
+    });
+    var managerSel = document.getElementById("s-manager-edit");
+    if(managerSel) managerSel.addEventListener("change", function(){
+      setSiteManager(id, managerSel.value);
+    });
+    var stampBtn = document.getElementById("stampSiteGuidelineBtn");
+    if(stampBtn) stampBtn.addEventListener("click", function(){ stampSiteGuideline(id); });
+    document.querySelectorAll("[data-gapply-major]").forEach(function(sel){
+      sel.addEventListener("change", function(){
+        stampSiteGuidelineMajor(id, sel.getAttribute("data-gapply-major"), sel.value);
+      });
     });
     var reqBtn = document.getElementById("btnRequestSiteApproval");
     if(reqBtn) reqBtn.addEventListener("click", function(){ requestSiteApproval(id); });
