@@ -2014,30 +2014,34 @@
       });
     }).then(function(url){
       var chunks = chunkPagesByBudget(extracted.index, 180000);
-      var writes = chunks.map(function(pages, i){
-        return S.db.doc("guidelineChunks/"+docId+"_"+i).set({ docId: docId, chunkIndex: i, pages: pages });
-      });
-      return Promise.all(writes).then(function(){
+      // guideline_chunks.doc_id는 guideline_docs.id를 참조하는 외래키라서, chunk를 쓰기 전에
+      // guideline_docs 행을 먼저 만들어둬야 한다. 순서가 반대면(예전 코드처럼 chunk를 먼저 쓰면)
+      // 그 대공종을 처음 업로드할 때(아직 guideline_docs 행이 없을 때) "Key is not present in table
+      // guideline_docs" 외래키 위반(23503) 오류로 업로드가 실패한다.
+      return S.db.doc("guidelineDocs/"+docId).set({
+        major: major, fileName: file.name, url: url, pageCount: extracted.pageCount, chunkCount: chunks.length,
+        uploadedById: S.viewerId, uploadedByName: S.viewerName||"", uploadedAt: uploadedAt
+      }).then(function(){
+        var writes = chunks.map(function(pages, i){
+          return S.db.doc("guidelineChunks/"+docId+"_"+i).set({ docId: docId, chunkIndex: i, pages: pages });
+        });
+        return Promise.all(writes);
+      }).then(function(){
         var cleanups = [];
         for(var i=chunks.length; i<prevChunkCount; i++){
           cleanups.push(S.db.doc("guidelineChunks/"+docId+"_"+i).delete().catch(function(){}));
         }
-        return Promise.all(cleanups).then(function(){
-          return S.db.doc("guidelineDocs/"+docId).set({
-            major: major, fileName: file.name, url: url, pageCount: extracted.pageCount, chunkCount: chunks.length,
-            uploadedById: S.viewerId, uploadedByName: S.viewerName||"", uploadedAt: uploadedAt
-          });
-        }).then(function(){
-          // 업로드할 때마다 별도의 이력 레코드도 남겨서, 나중에 "몇 번 개정됐는지" / "어떤 판이 있었는지"를
-          // 설정 페이지에서 확인하고, 현장별로 과거 판을 선택해서 기록할 수 있게 한다.
-          var revId = docId+"_r"+Date.now();
-          return S.db.doc("guidelineRevisions/"+revId).set({
-            docId: docId, major: major, fileName: file.name, url: url, pageCount: extracted.pageCount,
-            uploadedById: S.viewerId, uploadedByName: S.viewerName||"", uploadedAt: uploadedAt, createdAt: nowIso()
-          }).catch(function(err){
-            console.warn("guideline revision write failed", err);
-            toast("지침서는 반영됐지만, 변경 이력 저장에는 실패했어요.");
-          });
+        return Promise.all(cleanups);
+      }).then(function(){
+        // 업로드할 때마다 별도의 이력 레코드도 남겨서, 나중에 "몇 번 개정됐는지" / "어떤 판이 있었는지"를
+        // 설정 페이지에서 확인하고, 현장별로 과거 판을 선택해서 기록할 수 있게 한다.
+        var revId = docId+"_r"+Date.now();
+        return S.db.doc("guidelineRevisions/"+revId).set({
+          docId: docId, major: major, fileName: file.name, url: url, pageCount: extracted.pageCount,
+          uploadedById: S.viewerId, uploadedByName: S.viewerName||"", uploadedAt: uploadedAt, createdAt: nowIso()
+        }).catch(function(err){
+          console.warn("guideline revision write failed", err);
+          toast("지침서는 반영됐지만, 변경 이력 저장에는 실패했어요.");
         });
       });
     }).then(function(){
