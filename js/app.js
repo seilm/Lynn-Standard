@@ -97,6 +97,7 @@
   }
   function toast(msg){
     var t = document.getElementById("toast");
+    if(!t) return; // #toast 요소가 없으면 그냥 조용히 무시 (여기서 죽으면 호출부의 나머지 로직이 통째로 중단됨)
     t.textContent = msg; t.classList.add("show");
     clearTimeout(t._h);
     t._h = setTimeout(function(){ t.classList.remove("show"); }, 2600);

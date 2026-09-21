@@ -28,6 +28,12 @@ create table if not exists public.profiles (
 
 comment on table public.profiles is '팀원 프로필/역할. 신규 가입자는 기본적으로 조회자로 생성됩니다.';
 
+-- 이미 profiles 테이블이 있던 배포본(즉 위 create table이 그냥 건너뛰어진 경우)을 위해
+-- view_approved 컬럼을 별도로 추가해준다. 아래 can_view() 함수가 이 컬럼을 참조하므로,
+-- 그 함수보다 반드시 먼저 실행돼야 한다 (나중에 실행하면 "column view_approved does not exist" 에러로
+-- 스크립트 전체가 중단되고, 그러면 이후의 guideline_docs 등 테이블 생성까지 전부 실행되지 않는다).
+alter table public.profiles add column if not exists view_approved boolean not null default false;
+
 -- 신규 회원가입 시 자동으로 profiles 행 생성 (기본 역할: 조회자)
 create or replace function public.handle_new_user()
 returns trigger
@@ -159,9 +165,6 @@ create index if not exists sites_name_idx on public.sites (name);
 alter table public.sites add column if not exists applied_guidelines jsonb not null default '{}';
 alter table public.sites add column if not exists manager_id uuid references auth.users(id);
 alter table public.sites add column if not exists manager_name text;
-
--- 이미 profiles 테이블이 있던 배포본을 위해 view_approved 컬럼도 별도로 추가해준다.
-alter table public.profiles add column if not exists view_approved boolean not null default false;
 
 -- ------------------------------------------------------------
 -- 3-1. guideline_docs — 실행지침서 PDF (공통가설/건축/현장관리비, 각 1건)
