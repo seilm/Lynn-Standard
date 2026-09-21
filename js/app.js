@@ -577,6 +577,22 @@
     return out;
   }
 
+  // 실시간 구독(postgres_changes)이 늦게 도착하거나(네트워크 지연) 실패하는 경우에도, 방금 성공한
+  // 내 수정이 화면에 바로 반영되도록 로컬 상태(S.changes/S.sites/S.members)를 즉시 패치해준다.
+  // (실시간이 나중에 도착하면 서버 값으로 다시 한번 덮어써질 뿐이라 안전하다.)
+  function applyOptimisticPatch(coll, id, data){
+    if(coll === "changes"){
+      var c = S.changes.find(function(x){ return x.id===id; });
+      if(c) Object.assign(c, data);
+    } else if(coll === "sites"){
+      var s = S.sites.find(function(x){ return x.id===id; });
+      if(s) Object.assign(s, data);
+    } else if(coll === "members"){
+      if(S.members[id]) Object.assign(S.members[id], data);
+    }
+    render();
+  }
+
   function makeDb(sb){
     function docRef(path){
       var parts = path.split("/");
@@ -584,8 +600,16 @@
       var table = COLLECTION_TABLE[coll] || coll;
       return {
         update: function(data){
-          return sb.from(table).update(toRow(coll, data)).eq("id", id).then(function(res){
+          // .select("id")를 붙여서 실제로 몇 행이 바뀌었는지 응답으로 받아온다. 이게 없으면
+          // RLS 정책(using절)에 걸려 행이 0개 매칭돼도 PostgREST는 200(성공)을 돌려주기 때문에,
+          // 화면에는 "저장되었습니다" 토스트가 뜨는데 실제로는 아무것도 안 바뀌는 조용한 실패가 생긴다
+          // (예: 현장 담당자를 골라도 저장 후 목록에 갔다 오면 다시 "미지정"으로 보이는 증상).
+          return sb.from(table).update(toRow(coll, data)).eq("id", id).select("id").then(function(res){
             if(res.error) throw res.error;
+            if(!res.data || !res.data.length){
+              throw { message:"이 항목을 수정할 권한이 없거나 대상을 찾을 수 없습니다.", code:"NO_ROWS_UPDATED" };
+            }
+            applyOptimisticPatch(coll, id, data);
             return res;
           });
         },
@@ -1225,6 +1249,41 @@
     return '<div class="change-list">'+items.slice().sort(byDateDesc).map(function(c){ return rowHtml(c, hideCat); }).join("")+'</div>';
   }
 
+  // listBody(monthYm)와 똑같은 순서(대공종 → 중분류 알파벳순 → 날짜 내림차순, 필터 적용 시엔 평평하게 날짜순)로
+  // 화면에 "실제로 보이는" 항목 배열을 만든다. 상세 화면의 이전/다음 화살표가 화면에 보이던 목록과
+  // 똑같은 순서로 넘어가게 하려고, listBody의 렌더링 로직을 그대로 데이터로만 재현한 버전.
+  function orderedChangesForList(monthYm){
+    var items = filteredScoped(monthYm);
+    var searching = !!S.filters.q;
+    if(!S.filters.minor && !monthYm && !searching){
+      var byMajor = {};
+      items.forEach(function(c){ (byMajor[c.major]=byMajor[c.major]||[]).push(c); });
+      var out = [];
+      MAJORS.forEach(function(maj){
+        if(S.filters.major && S.filters.major!==maj) return;
+        var list = byMajor[maj]; if(!list || !list.length) return;
+        var byMinor = {};
+        list.forEach(function(c){ (byMinor[c.minor]=byMinor[c.minor]||[]).push(c); });
+        Object.keys(byMinor).sort().forEach(function(min){
+          out = out.concat(byMinor[min].slice().sort(byDateDesc));
+        });
+      });
+      return out;
+    }
+    return items.slice().sort(byDateDesc);
+  }
+
+  // 상세 화면에 들어오기 직전에 보고 있던 목록(S.lastListHash: 홈/월별/승인대기)과 같은 순서를 고른다.
+  function navListForCurrentContext(){
+    var hash = S.lastListHash || "#/";
+    if(hash.indexOf("#/approvals") === 0){
+      // 승인대기 목록은 필터와 무관하게 대기중 항목 전체를 날짜 내림차순으로 보여준다 (viewApprovals()와 동일).
+      return S.changes.filter(function(c){ return c.status==="pending"; }).slice().sort(byDateDesc);
+    }
+    var m = hash.match(/^#\/month\/([\d-]+)/);
+    return orderedChangesForList(m ? m[1] : null);
+  }
+
   function rowHtml(c, hideCat){
     var precision = (c.changeDate||"").length===7 ? "month" : "day";
     return '<button class="row" data-open="'+c.id+'">'
@@ -1261,9 +1320,10 @@
     var c = S.changes.find(function(x){ return x.id===id; });
     if(!c) return '<div class="detail"><div class="empty">항목을 찾을 수 없습니다.</div></div>';
 
-    // 카드 양옆 이전/다음 화살표: 지금 보고 있는 목록(현재 필터)과 같은 순서로 옆 항목을 찾는다.
-    // 승인대기 목록처럼 현재 필터에 안 걸리는 곳에서 들어온 경우엔 전체 이력 순서로라도 동작하게 한다.
-    var navList = filteredScoped().slice().sort(byDateDesc);
+    // 카드 양옆 이전/다음 화살표: 상세로 들어오기 직전에 보고 있던 목록과 완전히 같은 순서(대공종 →
+    // 중분류 → 날짜순 그룹핑까지 포함)로 옆 항목을 찾는다. 그 목록에 없는 항목이면(필터가 바뀐 경우 등)
+    // 전체 이력 날짜순으로라도 동작하게 한다.
+    var navList = navListForCurrentContext();
     var navIdx = navList.findIndex(function(x){ return x.id === id; });
     if(navIdx === -1){
       navList = S.changes.slice().sort(byDateDesc);
