@@ -234,7 +234,7 @@ img{ max-width:100%; }
      보였어서, 바를 별도 요소로 만들어 글자 높이에 맞춰 짧게 잡고 flex로 가운데 정렬한다. */
   .content-head h1.dept-heading{ display:flex; align-items:center; gap:9px; }
   .content-head h1.dept-heading .dept-bar{
-    width:5px; height:0.8em; min-height:15px; border-radius:3px; background:var(--header-accent); flex-shrink:0;
+    width:5px; height:1em; min-height:18px; border-radius:3px; background:var(--header-accent); flex-shrink:0;
   }
   .content-head .meta{ font-size:12.5px; color:var(--ink-faint); margin-top:3px; }
   .month-nav{ display:flex; align-items:center; gap:6px; }
@@ -427,11 +427,11 @@ img{ max-width:100%; }
   .site-control-row label.field-sep{ margin-left:12px; }
   .site-control-row input[type="date"]{
     padding:5px 9px; border-radius:7px; border:1px solid var(--line); background:var(--surface);
-    color:var(--ink); font-size:12px; min-width:0;
+    color:var(--ink); font-size:12px; min-width:0; text-align:center;
   }
   .site-control-row select{
     padding:5px 12px; border-radius:7px; border:1px solid var(--line); background:var(--surface);
-    color:var(--ink); font-size:12px; width:140px; max-width:150px;
+    color:var(--ink); font-size:12px; width:140px; max-width:150px; text-align:center; text-align-last:center;
   }
   /* 승인완료 상태처럼 잠겨서 수정 못 할 때는 브라우저가 필드마다 다르게 흐리게 처리해서 색이
      서로 달라 보이던 걸 통일하고, select의 화살표도 없애서 "선택 가능해 보이는" 느낌을 없앤다. */
