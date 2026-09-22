@@ -2144,13 +2144,12 @@
 
     var addNote = S.canManageRoster
       ? '<div class="detail-card" style="margin-top:14px;">'
-        +'<h3 style="font-family:var(--font-d);font-size:14px;margin:0 0 4px;">새 팀원 추가</h3>'
-        +'<div class="meta" style="color:var(--ink-faint);font-size:12px;">아직 회원가입하지 않은 사람은 목록에 나타나지 않아요. 먼저 로그아웃 상태에서 회원가입을 하고 접속하면, 아래 팀 구성 목록에 조회자로 나타나요 — 그때 역할을 팀원 또는 파트장으로 바꿔주세요.</div>'
+        +'<h3 style="font-family:var(--font-d);font-size:14px;margin:0;">새 팀원 추가</h3>'
       +'</div>'
       : "";
 
     return '<div class="detail">'
-      +'<div class="content-head"><div><h1>설정</h1><div class="meta">팀 구성원 역할을 관리합니다. 처음 접속한 사람은 조회자로 등록되고, 파트장/관리자가 팀원·파트장으로 지정해야 신규등록·승인 권한이 생겨요. 모든 기준이 대외비라, 조회자는 팀원 또는 파트장이 "조회 승인"을 눌러줘야 내용을 볼 수 있어요.</div></div></div>'
+      +'<div class="content-head"><div><h1>설정</h1></div></div>'
       +'<div class="detail-card">'
         +'<h3 style="font-family:var(--font-d);font-size:14px;margin:0 0 10px;">팀 구성 ('+ids.length+'명)</h3>'
         +(rows || '<div class="empty">아직 등록된 팀원이 없습니다.</div>')
@@ -2207,8 +2206,7 @@
       return '<div class="gdoc-row"><span class="gname">'+esc(major)+'</span><span class="gmeta">'+meta+'</span>'+control+pendingHtml+historyHtml+'</div>';
     }).join("");
     return '<div class="detail-card" style="margin-top:14px;">'
-      +'<h3 style="font-family:var(--font-d);font-size:14px;margin:0 0 4px;">실행지침서 (PDF)</h3>'
-      +'<div class="meta" style="color:var(--ink-faint);font-size:12px;margin-bottom:8px;">지침서가 개정될 때마다 새 PDF로 교체해주세요. "업로드/교체"로 파일을 선택한 뒤 개정일을 지정하고 저장을 눌러주세요. 날짜는 실제 지침서의 개정일(문서에 적힌 날짜)로 맞춰주세요 — "실행지침서 최신 개정 기준선" 표시의 기준이 돼요.'+(S.canManageRoster?'':' 업로드·교체는 파트장만 할 수 있어요.')+'</div>'
+      +'<h3 style="font-family:var(--font-d);font-size:14px;margin:0 0 10px;">실행지침서 (PDF)</h3>'
       + rows
     +'</div>';
   }
@@ -2789,7 +2787,7 @@
         +'<span class="chip neutral">'+cnt+'건</span>'
       +'</button>';
     }).join("");
-    return head + '<div class="change-list">'+rows+'</div>';
+    return head + '<div class="change-list list-roomy">'+rows+'</div>';
   }
   function wireDeptPicker(){
     document.querySelectorAll("[data-open-dept]").forEach(function(el){
@@ -2810,7 +2808,14 @@
       +'</div>';
     }
 
-    var sortedSites = S.sites.slice().sort(function(a,b){ return (a.name||"").localeCompare(b.name||"","ko"); });
+    var sortedSites = S.sites.slice().sort(function(a,b){
+      var da = a.deadline||"", db = b.deadline||"";
+      if(!da && !db) return (a.name||"").localeCompare(b.name||"","ko");
+      if(!da) return 1;
+      if(!db) return -1;
+      if(da === db) return (a.name||"").localeCompare(b.name||"","ko");
+      return da > db ? -1 : 1;
+    });
     var rows = sortedSites.map(function(s){
       var stat = siteApplyStats(s);
       var remain = stat.total - stat.applied;
@@ -2822,7 +2827,7 @@
         +(remain>0 ? '<span class="chip pending">미반영 '+remain+'건</span>' : '<span class="chip approved">모두 반영</span>')
       +'</button>';
     }).join("");
-    var listPart = rows ? '<div class="change-list">'+rows+'</div>' : '<div class="empty">등록된 현장이 없습니다. 위에서 현장을 추가해보세요.</div>';
+    var listPart = rows ? '<div class="change-list list-roomy">'+rows+'</div>' : '<div class="empty">등록된 현장이 없습니다. 위에서 현장을 추가해보세요.</div>';
 
     return head + addBlock + listPart;
   }
