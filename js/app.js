@@ -1071,7 +1071,6 @@
         +'<div class="f-field"><label for="authPassword">비밀번호</label><input id="authPassword" type="password" placeholder="6자 이상" autocomplete="'+(AUTH_TAB==="signup"?"new-password":"current-password")+'"></div>'
         +(AUTH_TAB==="signup" ? '<div class="f-field"><label for="authName">이름</label><input id="authName" type="text" placeholder="실명을 입력해주세요"></div>' : '')
         +'<button class="btn accent" id="btnAuthSubmit" type="button" style="width:100%;">'+(AUTH_TAB==="signup"?"회원가입":"로그인")+'</button>'
-        +'<div class="auth-note">조회는 누구나 가능하고, 신규 등록·수정·승인은 팀원 또는 파트장으로 지정된 계정만 할 수 있어요. 새로 가입하면 기본적으로 조회자로 등록돼요.</div>'
       +'</div>'
     +'</div>';
   }
@@ -1381,7 +1380,7 @@
       var atCurrentMonth = monthYm >= curYmForNav;
       head += '<div class="month-nav">'
         +'<button class="icon-btn" data-nav-month="'+ymOf(prevD)+'">‹</button>'
-        +'<input type="month" id="monthPick" value="'+monthYm+'" max="'+curYmForNav+'" style="padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);">'
+        +'<input type="month" id="monthPick" value="'+monthYm+'" max="'+curYmForNav+'">'
         +'<button class="icon-btn" data-nav-month="'+ymOf(nextD)+'"'+(atCurrentMonth?' disabled':'')+'>›</button>'
       +'</div>';
     }
