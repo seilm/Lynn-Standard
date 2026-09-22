@@ -2564,12 +2564,14 @@
     var stamp = nowIso().slice(0,16).replace("T"," ");
     // 타일이 좁으면 회전된 글자가 타일 경계에서 잘려 보이므로(다음 타일에서 다시 시작되는 것처럼
     // 보임), 텍스트를 타일 중심에 가운데정렬로 두고 타일 자체를 글자가 절대 안 잘릴 만큼 넉넉하게 잡는다.
-    var tw = 420, th = 240;
+    // 진하게 만드는 대신(그러면 본문이 안 읽혀서), 옅은 톤은 그대로 두고 글자 크기와 타일을
+    // 작게 잡아 반복 간격을 좁혀서 페이지 안 빈 여백뿐 아니라 표·글자 위에도 자주 지나가게 한다.
+    var tw = 360, th = 205;
     var cx = tw/2, cy = th/2;
     var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="'+tw+'" height="'+th+'">'
-      +'<g transform="rotate(-28 '+cx+' '+cy+')" font-family="Arial, sans-serif" fill="rgba(20,20,20,0.1)" text-anchor="middle">'
-        +'<text x="'+cx+'" y="'+(cy - 6)+'" font-size="13" font-weight="600">'+esc(label)+'</text>'
-        +'<text x="'+cx+'" y="'+(cy + 14)+'" font-size="11">'+esc(stamp)+'</text>'
+      +'<g transform="rotate(-28 '+cx+' '+cy+')" font-family="Arial, sans-serif" fill="rgba(20,20,20,0.13)" text-anchor="middle">'
+        +'<text x="'+cx+'" y="'+(cy - 5)+'" font-size="11" font-weight="600">'+esc(label)+'</text>'
+        +'<text x="'+cx+'" y="'+(cy + 11)+'" font-size="9">'+esc(stamp)+'</text>'
       +'</g>'
     +'</svg>';
     return "data:image/svg+xml,"+encodeURIComponent(svg);
