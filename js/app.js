@@ -26,7 +26,8 @@
     ".gif":"image/gif", ".webp":"image/webp", ".svg":"image/svg+xml",
     ".csv":"text/csv", ".txt":"text/plain", ".md":"text/markdown", ".json":"application/json",
     ".xlsx":"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    ".xls":"application/vnd.ms-excel"
+    ".xls":"application/vnd.ms-excel",
+    ".eml":"message/rfc822"
   };
   var EXCEL_EXT = { ".xlsx":1, ".xls":1 };
   var EXCEL_MIMES = {
@@ -450,6 +451,162 @@
     return rows.filter(function(r){ return r.length>1 || (r[0]||"").trim()!==""; });
   }
 
+  /* ============ .eml(이메일 원본) 첨부파일 미리보기 ============
+     완전한 RFC822/MIME 파서는 아니고, 제목/보낸사람/받는사람/날짜와 본문 텍스트를 최대한
+     뽑아서 보여주는 수준의 가벼운 파서다. 본문은 항상 텍스트로만 렌더링해서(innerHTML로
+     원본 HTML을 그대로 넣지 않음) 첨부된 이메일 안에 스크립트가 있어도 실행되지 않는다. */
+  function decodeBytesToText(binStr, charset){
+    var bytes = new Uint8Array(binStr.length);
+    for(var i=0;i<binStr.length;i++) bytes[i] = binStr.charCodeAt(i) & 0xFF;
+    var cs = (charset||"utf-8").trim().toLowerCase().replace(/^"|"$/g,"");
+    try{ return new TextDecoder(cs).decode(bytes); }
+    catch(e){
+      try{ return new TextDecoder("utf-8").decode(bytes); }
+      catch(e2){ return binStr; }
+    }
+  }
+  function decodeQuotedPrintable(str){
+    return str.replace(/=\r\n/g,"").replace(/=\n/g,"").replace(/=([0-9A-Fa-f]{2})/g, function(_, hex){ return String.fromCharCode(parseInt(hex,16)); });
+  }
+  // 이메일 헤더(제목/보낸사람 등)에 한글이 섞여 있으면 RFC 2047 "=?charset?B/Q?...?=" 형식으로
+  // 인코딩돼 있는 경우가 대부분이라, 이 인코딩을 풀어서 실제 한글 텍스트로 보여준다.
+  function decodeMimeWords(str){
+    if(!str) return "";
+    return str.replace(/=\?([^?]+)\?([BbQq])\?([^?]*)\?=/g, function(_, charset, enc, data){
+      try{
+        if(enc.toUpperCase()==="B") return decodeBytesToText(atob(data.replace(/\s+/g,"")), charset);
+        var qp = data.replace(/_/g," ").replace(/=([0-9A-Fa-f]{2})/g, function(__, hex){ return String.fromCharCode(parseInt(hex,16)); });
+        return decodeBytesToText(qp, charset);
+      }catch(e){ return data; }
+    });
+  }
+  function parseEmlHeaders(raw){
+    var unfolded = raw.replace(/\r\n/g,"\n").replace(/\n[ \t]+/g," ");
+    var headers = {};
+    unfolded.split("\n").forEach(function(line){
+      var m = line.match(/^([^:\s][^:]*):\s*(.*)$/);
+      if(m){
+        var key = m[1].trim().toLowerCase();
+        if(!(key in headers)) headers[key] = m[2];
+      }
+    });
+    return headers;
+  }
+  function parseEmlContentType(ctHeader){
+    if(!ctHeader) return { type:"text/plain", params:{} };
+    var segs = ctHeader.split(";");
+    var type = segs[0].trim().toLowerCase();
+    var params = {};
+    for(var i=1;i<segs.length;i++){
+      var eq = segs[i].indexOf("=");
+      if(eq===-1) continue;
+      var k = segs[i].slice(0,eq).trim().toLowerCase();
+      var v = segs[i].slice(eq+1).trim().replace(/^"|"$/g,"");
+      params[k] = v;
+    }
+    return { type: type, params: params };
+  }
+  function splitEmlHeaderBody(raw){
+    var m = raw.match(/\r?\n\r?\n/);
+    if(!m) return { headers: raw, body: "" };
+    var idx = raw.search(/\r?\n\r?\n/);
+    return { headers: raw.slice(0, idx), body: raw.slice(idx + m[0].length) };
+  }
+  function decodeEmlBodyPart(body, headers){
+    var cte = (headers["content-transfer-encoding"]||"").trim().toLowerCase();
+    var ct = parseEmlContentType(headers["content-type"]);
+    var charset = ct.params.charset || "utf-8";
+    var text;
+    if(cte === "base64") text = decodeBytesToText(atob(body.replace(/[\r\n\s]+/g,"")), charset);
+    else if(cte === "quoted-printable") text = decodeBytesToText(decodeQuotedPrintable(body), charset);
+    else text = body;
+    return { text: text, type: ct.type };
+  }
+  function emlHtmlToText(html){
+    html = html.replace(/<script[\s\S]*?<\/script>/gi,"").replace(/<style[\s\S]*?<\/style>/gi,"");
+    html = html.replace(/<br\s*\/?>/gi,"\n").replace(/<\/(p|div|tr|li|h[1-6])>/gi,"\n");
+    // 문서에 붙이지 않은 요소라 스크립트는 절대 실행되지 않고, HTML 엔티티(&amp; 등)만 텍스트로 풀린다.
+    var tmp = document.createElement("div");
+    tmp.innerHTML = html;
+    return tmp.textContent || tmp.innerText || "";
+  }
+  function parseEmlFile(raw){
+    var top = splitEmlHeaderBody(raw);
+    var headers = parseEmlHeaders(top.headers);
+    var attachmentNames = [];
+    var bodyText = "", isHtml = false;
+    function walk(bodyRaw, hdrs, depth){
+      var ct = parseEmlContentType(hdrs["content-type"]);
+      if(ct.type.indexOf("multipart/")===0 && ct.params.boundary && depth < 4){
+        bodyRaw.split("--"+ct.params.boundary).forEach(function(partRaw){
+          var trimmed = partRaw.replace(/^\r?\n/,"");
+          if(!trimmed || trimmed.indexOf("--")===0) return;
+          var pieces = splitEmlHeaderBody(trimmed);
+          if(pieces.headers.indexOf(":")===-1) return; // 경계 앞뒤 잡음(전문/후문) 걸러내기
+          var partHeaders = parseEmlHeaders(pieces.headers);
+          var disp = (partHeaders["content-disposition"]||"").toLowerCase();
+          var partCt = parseEmlContentType(partHeaders["content-type"]);
+          var isAttachment = disp.indexOf("attachment")!==-1
+            || (partCt.type.indexOf("text/")!==0 && partCt.type.indexOf("multipart/")!==0);
+          if(isAttachment){
+            var fnMatch = (partHeaders["content-disposition"]||"").match(/filename\*?="?([^";]+)"?/i);
+            var fn = partCt.params.name || (fnMatch && fnMatch[1]) || "첨부파일";
+            attachmentNames.push(decodeMimeWords(fn));
+            return;
+          }
+          walk(pieces.body, partHeaders, depth+1);
+        });
+      } else {
+        var decoded = decodeEmlBodyPart(bodyRaw, hdrs);
+        if(decoded.type === "text/html"){
+          if(!bodyText || isHtml){ bodyText = decoded.text; isHtml = true; }
+        } else {
+          if(!bodyText || isHtml){ bodyText = decoded.text; isHtml = false; }
+        }
+      }
+    }
+    walk(top.body, headers, 0);
+    if(isHtml) bodyText = emlHtmlToText(bodyText);
+    return {
+      subject: decodeMimeWords(headers["subject"]) || "(제목 없음)",
+      from: decodeMimeWords(headers["from"]||""),
+      to: decodeMimeWords(headers["to"]||""),
+      date: headers["date"]||"",
+      bodyText: bodyText.trim(),
+      attachmentNames: attachmentNames
+    };
+  }
+  function renderEmlInto(container, url){
+    container.innerHTML = '<div class="att-fallback" style="padding:14px;font-size:12px;color:var(--ink-faint);">이메일 불러오는 중…</div>';
+    fetch(url).then(function(res){ return res.text(); }).then(function(raw){
+      if(!document.body.contains(container)) return;
+      var eml;
+      try{ eml = parseEmlFile(raw); }catch(e){ console.warn("eml parse failed", e); eml = null; }
+      if(!eml){
+        container.innerHTML = '<div class="att-fallback" style="padding:14px;font-size:12px;color:var(--ink-faint);">이메일 미리보기를 표시할 수 없습니다. 아래 링크로 열어주세요.</div>';
+        return;
+      }
+      var attNote = eml.attachmentNames.length
+        ? '<div class="att-eml-note">첨부파일 '+eml.attachmentNames.length+'개 포함 (원본 파일에서 확인해주세요): '+eml.attachmentNames.map(esc).join(", ")+'</div>'
+        : "";
+      container.innerHTML = '<div class="att-eml">'
+        +'<div class="att-eml-head">'
+          +'<div class="att-eml-subject">'+esc(eml.subject)+'</div>'
+          +(eml.from ? '<div class="att-eml-meta"><b>보낸사람</b> '+esc(eml.from)+'</div>' : "")
+          +(eml.to ? '<div class="att-eml-meta"><b>받는사람</b> '+esc(eml.to)+'</div>' : "")
+          +(eml.date ? '<div class="att-eml-meta"><b>날짜</b> '+esc(eml.date)+'</div>' : "")
+        +'</div>'
+        +attNote
+        +'<div class="att-eml-body">'+esc(eml.bodyText || "(본문 없음)")+'</div>'
+      +'</div>';
+    }).catch(function(err){
+      console.warn("eml preview failed", err);
+      if(document.body.contains(container)){
+        container.innerHTML = '<div class="att-fallback" style="padding:14px;font-size:12px;color:var(--ink-faint);">이메일을 불러오지 못했습니다. 아래 링크로 열어주세요.</div>';
+      }
+    });
+  }
+
   /* ============ zoom controls (카드 첨부자료 / 지침서 미리보기 공통) ============
      예전에는 마우스를 올리면 돋보기 렌즈가 따라다니는 방식이었는데, 대신 각 뷰어마다
      +/- 버튼으로 배율을 조절하거나, 뷰어 위에서 Ctrl(또는 Cmd)+휠로 확대/축소할 수 있게 한다. */
@@ -850,9 +1007,12 @@
     if(!parts[0] || listLikeRoutes.indexOf(parts[0])!==-1){
       S.lastListHash = location.hash || "#/";
     }
-    // 확인필요/필수반영 필터는 목록 화면(홈 · 월별 · 부서별)에만 있는 버튼이라, 그 화면을 벗어나면
-    // 다음에 목록으로 돌아왔을 때도 계속 걸려있지 않도록 여기서 풀어준다.
-    var urgencyFilterRoute = !parts[0] || parts[0]==="month" || (parts[0]==="dept" && parts[1]);
+    // 확인필요/필수반영 필터는 목록 화면(홈 · 월별 · 부서별)에만 있는 버튼이라, 그 화면을 완전히
+    // 벗어나면(승인대기/현장현황/설정 등) 다음에 목록으로 돌아왔을 때 계속 걸려있지 않도록 풀어준다.
+    // 단, 목록에서 카드를 열어 상세 화면(#/item/…)으로 들어간 경우는 "떠난 것"으로 치지 않는다 —
+    // 상세 화면의 이전/다음 넘기기도 이 필터를 따라야 하고, 목록으로 돌아왔을 때도 필터가 그대로
+    // 유지돼야 하기 때문이다.
+    var urgencyFilterRoute = !parts[0] || parts[0]==="month" || (parts[0]==="dept" && parts[1]) || (parts[0]==="item" && parts[1]);
     if(!urgencyFilterRoute && S.filters.urgency){ S.filters.urgency = null; }
     var body = "";
     if((parts[0] === "new" || parts[0] === "edit") && !canWrite()){
@@ -1422,6 +1582,8 @@
           + (a.sheetCount>1 ? '<div class="att-excel-note">첫 번째 시트만 미리보기에 반영돼요 (전체 '+a.sheetCount+'개 시트)</div>' : '');
       } else if(a.contentType === "text/csv"){
         body = '<div class="att-excel-host" id="attExcelHost" data-kind="csv"><div class="att-fallback" style="padding:14px;font-size:12px;color:var(--ink-faint);">표 불러오는 중…</div></div>';
+      } else if(a.contentType === "message/rfc822"){
+        body = '<div class="att-eml-host" id="attEmlHost"><div class="att-fallback" style="padding:14px;font-size:12px;color:var(--ink-faint);">이메일 불러오는 중…</div></div>';
       } else {
         body = '<div style="padding:10px;font-size:12px;color:var(--ink-faint);">이 형식은 미리보기를 지원하지 않습니다.</div>';
       }
@@ -1528,6 +1690,8 @@
       if(excelHost.getAttribute("data-kind")==="csv") renderCsvInto(excelHost, curAtt.url);
       else renderExcelInto(excelHost, curAtt.url);
     }
+    var emlHost = document.getElementById("attEmlHost");
+    if(emlHost && curAtt){ renderEmlInto(emlHost, curAtt.url); }
     var attImg = document.getElementById("attImg");
     if(attImg && curAtt){ wireZoomWidget("att", attZoomScroll, attImg); }
     var attPrev = document.getElementById("attPrev");
@@ -1683,7 +1847,7 @@
           +'<textarea id="f-reason" placeholder="배경, 지시자, 근거 등" style="width:100%;"></textarea>'
         +'</div></details>'
         +'<details class="f-details" id="secFiles"><summary>첨부자료 (선택)</summary><div class="f-details-body">'
-          +'<div class="file-drop">PDF · 이미지(PNG/JPG) · Excel(XLSX/XLS) · CSV · TXT 파일을 첨부할 수 있어요.<br>Word·PPT 원본은 PDF로 변환 후 첨부해주세요.<br><input type="file" id="f-files" multiple accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.csv,.txt,.md,.json,.xlsx,.xls" style="margin-top:8px;"></div>'
+          +'<div class="file-drop">PDF · 이미지(PNG/JPG) · Excel(XLSX/XLS) · CSV · TXT · 이메일(EML) 파일을 첨부할 수 있어요.<br>Word·PPT 원본은 PDF로 변환 후 첨부해주세요.<br><input type="file" id="f-files" multiple accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.csv,.txt,.md,.json,.xlsx,.xls,.eml" style="margin-top:8px;"></div>'
           +'<div class="file-chips" id="fileChips"></div>'
         +'</div></details>'
         +'<div class="f-field full" style="margin-top:6px;"><label for="f-tags">태그 (선택, 쉼표로 구분)</label><input id="f-tags" type="text" placeholder="예: 방수, 단열, LH"></div>'
@@ -1868,7 +2032,7 @@
         var ext = "." + (file.name.split(".").pop()||"").toLowerCase();
         var mime = ACCEPT_EXT[ext];
         if(!mime){
-          toast(file.name + " : 지원하지 않는 형식입니다 (PDF/이미지/Excel/CSV/TXT만 가능)");
+          toast(file.name + " : 지원하지 않는 형식입니다 (PDF/이미지/Excel/CSV/TXT/EML만 가능)");
           return;
         }
         uploadAttachment(file, mime);

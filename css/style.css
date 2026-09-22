@@ -366,7 +366,7 @@ img{ max-width:100%; }
   .att-pdf-host{ background:#fff; }
   .att-pdf-host canvas{ width:100%; display:block; border-bottom:1px solid var(--line-soft); }
   .att-pdf-host canvas:last-child{ border-bottom:none; }
-  .approve-bar{ display:flex; gap:8px; margin-top:18px; padding-top:16px; border-top:1px solid var(--line-soft); flex-wrap:wrap; }
+  .approve-bar{ display:flex; gap:8px; margin-top:18px; padding-top:16px; border-top:1px solid var(--line-soft); flex-wrap:wrap; justify-content:flex-end; }
   .reject-box{ margin-top:10px; display:none; gap:8px; flex-direction:column; }
   .reject-box.show{ display:flex; }
   .reject-box textarea{ width:100%; }
@@ -510,6 +510,16 @@ img{ max-width:100%; }
   .att-excel-host th, .att-excel-host td{ border:1px solid var(--line-soft); padding:5px 8px; text-align:left; }
   .att-excel-host th{ background:var(--surface-2); position:sticky; top:0; font-weight:700; color:var(--ink-soft); }
   .att-excel-note{ font-size:11px; color:var(--ink-faint); padding:7px 10px; border-top:1px solid var(--line-soft); background:var(--surface-2); }
+
+  /* ---- eml(이메일) preview ---- */
+  .att-eml-host{ max-height:480px; overflow:auto; background:var(--surface); }
+  .att-eml{ padding:14px 16px; }
+  .att-eml-head{ padding-bottom:10px; margin-bottom:10px; border-bottom:1px solid var(--line-soft); }
+  .att-eml-subject{ font-family:var(--font-d); font-weight:700; font-size:14px; margin-bottom:6px; }
+  .att-eml-meta{ font-size:11.5px; color:var(--ink-soft); line-height:1.6; }
+  .att-eml-meta b{ display:inline-block; min-width:56px; color:var(--ink-faint); font-weight:500; }
+  .att-eml-note{ font-size:11px; color:var(--ink-faint); background:var(--surface-2); border:1px solid var(--line-soft); border-radius:7px; padding:7px 10px; margin-bottom:10px; }
+  .att-eml-body{ font-size:12.5px; line-height:1.7; white-space:pre-wrap; word-break:break-word; color:var(--ink); }
 
   /* ---- after-deadline emphasis ---- */
   .after-heading{
