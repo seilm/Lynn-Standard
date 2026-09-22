@@ -583,6 +583,19 @@
     }
     render();
   }
+  // add()로 새로 만든 문서도 마찬가지로, 실시간 구독이 따라오기 전에 곧바로 해당 상세 페이지로
+  // 이동하면(예: 현장 추가 → 바로 그 현장 상세로 이동) 로컬 배열에 아직 없어서 "찾을 수 없습니다"가
+  // 뜨는 문제가 있었다 — 새로 만든 항목도 로컬 상태에 즉시 추가해준다.
+  function applyOptimisticInsert(coll, id, data){
+    var obj = Object.assign({ id: id }, data);
+    if(coll === "changes"){
+      if(!S.changes.find(function(x){ return x.id===id; })) S.changes.push(obj);
+    } else if(coll === "sites"){
+      if(!S.sites.find(function(x){ return x.id===id; })) S.sites.push(obj);
+    } else if(coll === "members"){
+      if(!S.members[id]) S.members[id] = obj;
+    }
+  }
 
   function makeDb(sb){
     function docRef(path){
@@ -644,6 +657,7 @@
         add: function(data){
           return sb.from(table).insert(toRow(coll, data)).select().single().then(function(res){
             if(res.error) throw res.error;
+            applyOptimisticInsert(coll, res.data.id, data);
             return { id: res.data.id };
           });
         },
@@ -2724,30 +2738,24 @@
     var locked = siteChecklistLocked(s);
     var deadlineEditable = !locked && canWrite();
 
-    // 상단 액션 영역: draft 상태에서만 저장/승인요청 버튼이 마감일/담당자 박스 안, 오른쪽에 들어간다.
-    // 승인대기중/승인됨 상태는 체크리스트/마감일이 잠겨서 저장할 내용이 없으므로, 박스 안이 아니라
-    // 박스 바로 위에 상태 표시(칩)+버튼을 따로 둔다.
+    // 상단 액션 영역: 저장/승인요청/승인/승인요청 취소/승인완료 취소 버튼은 전부 마감일/담당자 박스
+    // 안, 오른쪽에 들어간다. 승인 대기중/승인됨 상태 표시(칩)만 박스 바로 위, 오른쪽 끝에 따로 둔다.
     var saveHtml = canWrite() ? '<button class="btn ghost" id="saveSiteAll" type="button">저장</button>' : "";
     var actionHtml = "";
     var statusRowHtml = "";
     if(status === "draft"){
       actionHtml = saveHtml + (canWrite() ? '<button class="btn" id="btnRequestSiteApproval" type="button">승인요청</button>' : "");
     } else if(status === "pending_approval"){
+      statusRowHtml = '<span class="chip pending">승인 대기중</span>';
       if(S.isPartLeader){
-        statusRowHtml = '<span class="chip pending">승인 대기중</span>'
-          + '<button class="btn" id="btnApproveSite" type="button">승인</button>';
+        actionHtml = '<button class="btn" id="btnApproveSite" type="button">승인</button>';
       } else if(canWrite()){
-        statusRowHtml = '<span class="chip pending">승인 대기중</span>'
-          + '<button class="btn ghost" id="btnCancelSiteRequest" type="button">승인요청 취소</button>';
-      } else {
-        statusRowHtml = '<span class="chip pending">승인 대기중</span>';
+        actionHtml = '<button class="btn ghost" id="btnCancelSiteRequest" type="button">승인요청 취소</button>';
       }
     } else if(status === "approved"){
+      statusRowHtml = '<span class="chip approved">승인됨</span>';
       if(S.isPartLeader || S.isOwner){
-        statusRowHtml = '<span class="chip approved">승인됨</span>'
-          + '<button class="btn ghost" id="btnUndoSiteApproval" type="button">승인완료 취소</button>';
-      } else {
-        statusRowHtml = '<span class="chip approved">승인됨</span>';
+        actionHtml = '<button class="btn ghost" id="btnUndoSiteApproval" type="button">승인완료 취소</button>';
       }
     }
 
