@@ -460,17 +460,25 @@
       +'<button type="button" class="zoom-btn" id="'+prefix+'ZoomIn" aria-label="확대">+</button>'
     +'</div>';
   }
-  function wireZoomWidget(prefix, scrollEl, targetEl){
+  // 지침서 검색처럼 페이지를 넘겨도(prev/next 등으로 render()가 다시 호출돼도) 사용자가 맞춰둔
+  // 배율이 풀리지 않아야 하는 뷰어를 위한 저장소. prefix별로 마지막 배율을 기억해뒀다가
+  // persist=true로 호출될 때 그 값을 이어서 쓴다.
+  var ZOOM_LEVELS = {};
+  function wireZoomWidget(prefix, scrollEl, targetEl, persist){
     if(!scrollEl || !targetEl) return;
     var min = 0.5, max = 3, step = 0.2;
-    var zoom = 1;
+    var zoom = (persist && ZOOM_LEVELS[prefix]) ? ZOOM_LEVELS[prefix] : 1;
     var pctEl = document.getElementById(prefix+"ZoomPct");
     function apply(){
       targetEl.style.transform = "scale("+zoom.toFixed(2)+")";
       targetEl.style.transformOrigin = "top left";
       if(pctEl) pctEl.textContent = Math.round(zoom*100)+"%";
     }
-    function setZoom(z){ zoom = Math.max(min, Math.min(max, z)); apply(); }
+    function setZoom(z){
+      zoom = Math.max(min, Math.min(max, z));
+      if(persist) ZOOM_LEVELS[prefix] = zoom;
+      apply();
+    }
     var inBtn = document.getElementById(prefix+"ZoomIn");
     var outBtn = document.getElementById(prefix+"ZoomOut");
     if(inBtn) inBtn.addEventListener("click", function(){ setZoom(zoom+step); });
@@ -508,6 +516,7 @@
       submittedById:"submitted_by", submittedByName:"submitted_by_name", submittedAt:"submitted_at",
       approvedById:"approved_by", approvedByName:"approved_by_name", approvedAt:"approved_at",
       reopenedById:"reopened_by", reopenedByName:"reopened_by_name", reopenedAt:"reopened_at",
+      cancelledById:"cancelled_by", cancelledByName:"cancelled_by_name", cancelledAt:"cancelled_at",
       updatedById:"updated_by", updatedByName:"updated_by_name", updatedAt:"updated_at",
       createdAt:"created_at"
     },
@@ -1171,12 +1180,14 @@
   }
 
   function viewList(monthYm){
+    var routeParts = route();
+    var deptBackLink = (routeParts[0]==="dept" && routeParts[1]) ? '<a class="back-link" href="#/dept">&larr; 부서 목록으로</a>' : "";
     var scopeParts = [];
     if(S.filters.department) scopeParts.push(S.filters.department);
     if(S.filters.minor) scopeParts.push(S.filters.minor); else if(S.filters.major) scopeParts.push(S.filters.major);
     var heading = monthYm ? fmtYm(monthYm)+" 변경사항" : (scopeParts.length ? scopeParts.join(" · ") : "전체 공종 · 최근 변경");
     var d = new Date(monthYm ? monthYm+"-01" : ymOf(new Date())+"-01");
-    var head = '<div class="content-head"><div><h1 id="listHeading">'+esc(heading)+'</h1>'
+    var head = deptBackLink + '<div class="content-head"><div><h1 id="listHeading">'+esc(heading)+'</h1>'
       +'<div class="meta">'+(monthYm ? '해당 월에 등록·승인된 실행 편성 기준 변경 이력' : '전체 공종의 실행 편성 기준 변경 이력 (최신순)')+'</div></div>';
     if(monthYm){
       var prevD = new Date(d); prevD.setMonth(prevD.getMonth()-1);
@@ -1215,16 +1226,16 @@
     statuses.forEach(function(s){
       html += '<button class="pill'+(S.filters.status===s[0]?' on':'')+'" data-status="'+s[0]+'">'+s[1]+'</button>';
     });
-    html += '<span class="filter-divider"></span>';
-    urgencies.forEach(function(u){
-      html += '<button class="pill '+u[1]+(S.filters.urgency===u[0]?' on':'')+'" data-urgency="'+u[0]+'">'+u[2]+'</button>';
-    });
     if(S.filters.major || S.filters.minor){
       html += '<button class="pill" data-clear-cat="1">'+esc(S.filters.minor||S.filters.major)+' ✕</button>';
     }
     if(S.filters.department){
-      html += '<button class="pill" data-clear-dept="1">🏢 '+esc(S.filters.department)+' ✕</button>';
+      html += '<button class="pill" data-clear-dept="1">'+esc(S.filters.department)+' ✕</button>';
     }
+    html += '<span class="filter-spacer"></span>';
+    urgencies.forEach(function(u){
+      html += '<button class="pill '+u[1]+(S.filters.urgency===u[0]?' on':'')+'" data-urgency="'+u[0]+'">'+u[2]+'</button>';
+    });
     html += '</div>';
     return html;
   }
@@ -1617,8 +1628,9 @@
       +'<div class="form-card">'
         +'<h2 style="font-family:var(--font-d);font-size:18px;margin:0 0 4px;">'+(c?'기준 변경 수정':'신규 기준 변경 등록')+'</h2>'
         +'<div class="meta" style="color:var(--ink-faint);font-size:12.5px;margin-bottom:18px;">'+(c?(showApproveCombo?'내용을 수정하고 바로 승인하거나, 승인 대기 상태를 유지한 채 저장할 수 있어요.':'대기중 상태에서만 수정할 수 있어요. 수정 후에도 파트장 승인이 필요합니다.'):'등록 후 파트장 승인을 거쳐 목록에 정식 반영됩니다.')+'</div>'
-        +'<div class="f-row-2">'
+        +'<div class="f-row-3">'
           +'<div class="f-field"><label for="f-changeDate">날짜 (등록일 / 기준변경 시점)</label><input id="f-changeDate" type="date"></div>'
+          +'<div class="f-field"><label for="f-effScope">적용 현장</label><input id="f-effScope" type="text" placeholder="전현장 (또는 예: OO현장부터, LH현장)" value="전현장"></div>'
           +'<div class="f-field"><label for="f-department">유관부서</label><select id="f-department">'+deptOpts+'</select></div>'
         +'</div>'
         +'<div class="f-row-3">'
@@ -1631,9 +1643,8 @@
           +'</select></div>'
         +'</div>'
         +'<div class="f-grid">'
-          +'<div class="f-field full"><label for="f-title">핵심 제목</label><input id="f-title" type="text" placeholder="예: 이동식 미스트 환경관리비 반영" maxlength="80"></div>'
-          +'<div class="f-field full"><label for="f-summary">실행 반영 내용 (실행편성 담당자가 바로 알아야 할 내용)</label><textarea id="f-summary" placeholder="예: 환경관리비에 이동식 미스트 반영: 300만원/대. 500세대 이하 2대, 500세대마다 1대 추가 편성."></textarea></div>'
-          +'<div class="f-field full"><label for="f-effScope">적용 현장</label><input id="f-effScope" type="text" placeholder="전현장 (또는 예: OO현장부터, LH현장)" value="전현장"></div>'
+          +'<div class="f-field full"><label for="f-title">핵심 제목</label><input id="f-title" type="text" placeholder="예: 이동식 미스트 반영" maxlength="80"></div>'
+          +'<div class="f-field full"><label for="f-summary">실행 반영 내용 (실행편성 담당자가 바로 알아야 할 내용)</label><textarea id="f-summary" placeholder="예: 500세대 이하 2대, +500세대 마다 1대"></textarea></div>'
         +'</div>'
         +'<details class="f-details" id="secExec"><summary>실행양식 (선택 — 품명/규격/단위/수량)</summary><div class="f-details-body">'
           +'<div id="execRows"></div>'
@@ -2402,7 +2413,7 @@
         container.innerHTML = "";
         container.appendChild(shown);
         // 잘라낸 뒤에도 세부 내용을 더 자세히 보고 싶을 수 있어 +/- 버튼이나 Ctrl+휠로 확대할 수 있게 한다.
-        try{ wireZoomWidget("docsearch", container.parentElement, container); }catch(e){}
+        try{ wireZoomWidget("docsearch", container.parentElement, container, true); }catch(e){}
       });
     }).catch(function(err){
       console.warn("guideline pdf render failed", err);
@@ -2705,18 +2716,18 @@
       actionHtml = saveHtml + (canWrite() ? '<button class="btn" id="btnRequestSiteApproval" type="button">승인요청</button>' : "");
     } else if(status === "pending_approval"){
       if(S.isPartLeader){
-        actionHtml = '<span class="chip pending">승인 대기중</span>'
-          + '<button class="btn" id="btnApproveSite" type="button">승인</button>';
+        actionHtml = '<div class="site-action-group"><span class="chip pending">승인 대기중</span>'
+          + '<button class="btn" id="btnApproveSite" type="button">승인</button></div>';
       } else if(canWrite()){
-        actionHtml = '<span class="chip pending">승인 대기중</span>'
-          + '<button class="btn ghost" id="btnCancelSiteRequest" type="button">승인요청 취소</button>';
+        actionHtml = '<div class="site-action-group"><span class="chip pending">승인 대기중</span>'
+          + '<button class="btn ghost" id="btnCancelSiteRequest" type="button">승인요청 취소</button></div>';
       } else {
         actionHtml = '<span class="chip pending">승인 대기중</span>';
       }
     } else if(status === "approved"){
       if(S.isPartLeader || S.isOwner){
-        actionHtml = '<span class="chip approved">승인됨</span>'
-          + '<button class="btn ghost" id="btnUndoSiteApproval" type="button">승인완료 취소</button>';
+        actionHtml = '<div class="site-action-group"><span class="chip approved">승인됨</span>'
+          + '<button class="btn ghost" id="btnUndoSiteApproval" type="button">승인완료 취소</button></div>';
       } else {
         actionHtml = '<span class="chip approved">승인됨</span>';
       }
@@ -2739,13 +2750,13 @@
 
     var guidelineCard = "";
     if(guidelineHasAnyDocs()){
-      guidelineCard = '<div class="detail-card" style="margin-top:12px;margin-bottom:16px;padding:14px 14px;">'
-        +'<h3 style="font-family:var(--font-d);font-size:12.5px;margin:0 0 7px;color:var(--ink-soft);">이 현장에 적용된 지침서 시점</h3>'
-        +'<div class="gapply-row-wrap">'
-          +'<div class="gapply-line">' + siteGuidelineControlsHtml(draft.appliedGuidelines) + '</div>'
-          + (canWrite() ? '<button class="btn" id="stampSiteGuidelineBtn" type="button">현재 지침서 기준으로 채우기</button>' : '')
-        +'</div>'
-      +'</div>';
+      guidelineCard = '<h3 class="gapply-heading">지침서 기준 시점</h3>'
+        +'<div class="detail-card gapply-card">'
+          +'<div class="gapply-row-wrap">'
+            +'<div class="gapply-line">' + siteGuidelineControlsHtml(draft.appliedGuidelines) + '</div>'
+            + (canWrite() ? '<button class="btn" id="stampSiteGuidelineBtn" type="button">현재 지침서 기준으로 채우기</button>' : '')
+          +'</div>'
+        +'</div>';
     }
 
     var afterCount = rel.after.length;
@@ -2846,21 +2857,24 @@
       .catch(function(err){ console.warn(err); toast("처리 중 오류가 발생했습니다."); });
   }
   // 승인요청 취소: 승인 대기중 상태를 다시 draft로 되돌린다 (제출 정보 초기화).
+  // submitted_by는 uuid, submitted_at은 timestamptz라 ""(빈 문자열) 대신 null로 비워야 한다.
   function cancelSiteApprovalRequest(id){
     if(!S.db || !canWrite()) return;
     S.db.doc("sites/"+id).update({
       checklistStatus:"draft",
-      submittedById:"", submittedByName:"", submittedAt:"",
+      submittedById:null, submittedByName:"", submittedAt:null,
       cancelledById:S.viewerId, cancelledByName:S.viewerName||"", cancelledAt:nowIso()
     }).then(function(){ toast("승인요청을 취소했습니다."); })
       .catch(function(err){ console.warn(err); toast("처리 중 오류가 발생했습니다."); });
   }
   // 승인완료 취소: 승인됨 상태를 승인 대기중으로 되돌린다 (승인 정보 초기화, "다시 열기"와 달리 draft까지 가지 않는다).
+  // approved_by는 uuid 컬럼, approved_at은 timestamptz 컬럼이라 빈 문자열("")을 넣으면 DB에서
+  // 타입 변환 오류가 나서 저장이 실패했었다 — null로 비워야 한다.
   function undoSiteApproval(id){
     if(!S.db || !(S.isPartLeader||S.isOwner)) return;
     S.db.doc("sites/"+id).update({
       checklistStatus:"pending_approval",
-      approvedById:"", approvedByName:"", approvedAt:""
+      approvedById:null, approvedByName:"", approvedAt:null
     }).then(function(){ toast("승인완료를 취소했습니다."); })
       .catch(function(err){ console.warn(err); toast("처리 중 오류가 발생했습니다."); });
   }

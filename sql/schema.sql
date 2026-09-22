@@ -157,6 +157,9 @@ create table if not exists public.sites (
   reopened_by uuid references auth.users(id),
   reopened_by_name text,
   reopened_at timestamptz,
+  cancelled_by uuid references auth.users(id),   -- 승인요청 취소를 누른 사람
+  cancelled_by_name text,
+  cancelled_at timestamptz,
   updated_by uuid references auth.users(id),
   updated_by_name text,
   updated_at timestamptz,
@@ -170,6 +173,9 @@ create index if not exists sites_name_idx on public.sites (name);
 alter table public.sites add column if not exists applied_guidelines jsonb not null default '{}';
 alter table public.sites add column if not exists manager_id uuid references auth.users(id);
 alter table public.sites add column if not exists manager_name text;
+alter table public.sites add column if not exists cancelled_by uuid references auth.users(id);
+alter table public.sites add column if not exists cancelled_by_name text;
+alter table public.sites add column if not exists cancelled_at timestamptz;
 
 -- ------------------------------------------------------------
 -- 3-1. guideline_docs — 실행지침서 PDF (공통가설/건축/현장관리비, 각 1건)
