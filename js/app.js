@@ -1839,7 +1839,7 @@
           +'<div class="f-field full"><label for="f-title">핵심 제목</label><input id="f-title" type="text" placeholder="예: 이동식 미스트 반영" maxlength="80"></div>'
           +'<div class="f-field full"><label for="f-summary">실행 반영 내용</label><textarea id="f-summary" placeholder="예: 500세대 이하 2대, +500세대 마다 1대"></textarea></div>'
         +'</div>'
-        +'<details class="f-details" id="secExec"><summary>실행양식 (선택 — 품명/규격/단위/수량)</summary><div class="f-details-body">'
+        +'<details class="f-details" id="secExec"><summary>실행양식 (선택)</summary><div class="f-details-body">'
           +'<div id="execRows"></div>'
           +'<button class="btn ghost" id="addExecRow" type="button" style="font-size:12px;padding:6px 12px;">+ 행 추가</button>'
         +'</div></details>'
@@ -1865,8 +1865,8 @@
         +'<input data-f="spec" data-i="'+i+'" placeholder="규격" value="'+esc(it.spec)+'">'
         +'<input data-f="unit" data-i="'+i+'" placeholder="단위" value="'+esc(it.unit)+'">'
         +'<input data-f="qty" data-i="'+i+'" inputmode="decimal" placeholder="수량" value="'+esc(it.qty)+'">'
-        +'<input data-f="unitPrice" data-i="'+i+'" inputmode="numeric" placeholder="단가(숫자만)" value="'+esc(it.unitPrice)+'">'
-        +'<input data-f="amount" data-i="'+i+'" placeholder="금액(자동)" value="'+esc(it.amount)+'" readonly style="background:var(--surface-2);color:var(--ink-soft);">'
+        +'<input data-f="unitPrice" data-i="'+i+'" inputmode="numeric" placeholder="단가" value="'+esc(it.unitPrice)+'">'
+        +'<input data-f="amount" data-i="'+i+'" placeholder="금액" value="'+esc(it.amount)+'" readonly style="background:var(--surface-2);color:var(--ink-soft);">'
         +'<button class="rm" type="button" data-rm="'+i+'">✕</button>'
       +'</div>';
     }).join("");
@@ -2111,52 +2111,61 @@
   }
 
   /* ============ settings ============ */
+  // 팀원·파트장(또는 관리자)만 "팀 구성"에 오른다 — 새로 가입한 사람과 아직 역할을 안 받은 조회자는
+  // 전부 아래 "조회자" 목록에 머물고, 파트장이 거기서 팀원/파트장으로 바꿔줘야 팀 구성으로 올라간다.
+  function memberIsTeam(m){ return m.role==="팀원" || m.role==="파트장" || m.isAdmin; }
+
+  function rosterRowHtml(id){
+    var m = S.members[id];
+    var isMe = id === S.viewerId;
+    var isViewer = !memberIsTeam(m);
+    var seenLabel = m.firstSeenAt ? (fmtDate(m.firstSeenAt.slice(0,10),"day")+' 첫 방문') : '접속 대기중';
+    // 대외비 조회 승인: 조회자(role 미지정)만 해당, 팀원·파트장은 역할 자체로 항상 조회 가능하므로 표시하지 않는다.
+    var viewChip = "";
+    if(isViewer){
+      if(m.viewApproved){
+        viewChip = '<span class="chip approved" title="변경 이력을 조회할 수 있어요.">조회 가능</span>';
+      } else if(canWrite() && !isMe){
+        viewChip = '<button class="btn ghost" type="button" data-approve-view="'+esc(id)+'" style="padding:4px 10px;font-size:11px;" title="이 사람이 변경 이력을 조회할 수 있게 승인해요.">조회 승인</button>';
+      } else {
+        viewChip = '<span class="chip pending" title="아직 팀원/파트장의 조회 승인을 받지 못했어요.">승인 대기</span>';
+      }
+    }
+    return '<div class="roster-row"><span class="rname">'+(isMe?'<span style="color:var(--accent);">(나) </span>':'')+'<span class="uname" data-uid="'+esc(id)+'">…</span></span>'
+      +'<span class="rmeta mono">'+seenLabel+'</span>'
+      +viewChip
+      +(S.canManageRoster && !isMe ?
+        '<div class="seg" data-role-seg="'+esc(id)+'">'
+          +'<button data-role="조회자" class="'+(m.role!=="팀원"&&m.role!=="파트장"?"on":"")+'">조회자</button>'
+          +'<button data-role="팀원" class="'+(m.role==="팀원"?"on":"")+'">팀원</button>'
+          +'<button data-role="파트장" class="'+(m.role==="파트장"?"on":"")+'">파트장</button>'
+        +'</div>'
+        : '<span class="chip neutral"'+(isMe?' title="본인 역할은 여기서 바꿀 수 없어요. 다른 파트장에게 요청해주세요."':'')+'>'+esc(m.role==="팀원"||m.role==="파트장"?m.role:"조회자")+'</span>')
+      +'</div>';
+  }
+
   function viewSettings(){
     var ids = Object.keys(S.members);
-    var rows = ids.map(function(id){
-      var m = S.members[id];
-      var isMe = id === S.viewerId;
-      var isViewer = m.role!=="팀원" && m.role!=="파트장" && !m.isAdmin;
-      var seenLabel = m.firstSeenAt ? (fmtDate(m.firstSeenAt.slice(0,10),"day")+' 첫 방문') : '접속 대기중';
-      // 대외비 조회 승인: 조회자(role 미지정)만 해당, 팀원·파트장은 역할 자체로 항상 조회 가능하므로 표시하지 않는다.
-      var viewChip = "";
-      if(isViewer){
-        if(m.viewApproved){
-          viewChip = '<span class="chip approved" title="변경 이력을 조회할 수 있어요.">조회 가능</span>';
-        } else if(canWrite() && !isMe){
-          viewChip = '<button class="btn ghost" type="button" data-approve-view="'+esc(id)+'" style="padding:4px 10px;font-size:11px;" title="이 사람이 변경 이력을 조회할 수 있게 승인해요.">조회 승인</button>';
-        } else {
-          viewChip = '<span class="chip pending" title="아직 팀원/파트장의 조회 승인을 받지 못했어요.">승인 대기</span>';
-        }
-      }
-      return '<div class="roster-row"><span class="rname">'+(isMe?'<span style="color:var(--accent);">(나) </span>':'')+'<span class="uname" data-uid="'+esc(id)+'">…</span></span>'
-        +'<span class="rmeta mono">'+seenLabel+'</span>'
-        +viewChip
-        +(S.canManageRoster && !isMe ?
-          '<div class="seg" data-role-seg="'+esc(id)+'">'
-            +'<button data-role="조회자" class="'+(m.role!=="팀원"&&m.role!=="파트장"?"on":"")+'">조회자</button>'
-            +'<button data-role="팀원" class="'+(m.role==="팀원"?"on":"")+'">팀원</button>'
-            +'<button data-role="파트장" class="'+(m.role==="파트장"?"on":"")+'">파트장</button>'
-          +'</div>'
-          : '<span class="chip neutral"'+(isMe?' title="본인 역할은 여기서 바꿀 수 없어요. 다른 파트장에게 요청해주세요."':'')+'>'+esc(m.role==="팀원"||m.role==="파트장"?m.role:"조회자")+'</span>')
-        +'</div>';
-    }).join("");
+    var teamIds = ids.filter(function(id){ return memberIsTeam(S.members[id]); });
+    var viewerIds = ids.filter(function(id){ return !memberIsTeam(S.members[id]); });
+    var teamRows = teamIds.map(rosterRowHtml).join("");
+    var viewerRows = viewerIds.map(rosterRowHtml).join("");
 
-    var addNote = S.canManageRoster
-      ? '<div class="detail-card" style="margin-top:14px;">'
-        +'<h3 style="font-family:var(--font-d);font-size:14px;margin:0;">새 팀원 추가</h3>'
-      +'</div>'
-      : "";
+    var viewerSection = '<div class="detail-card" style="margin-top:14px;">'
+      +'<h3 style="font-family:var(--font-d);font-size:14px;margin:0 0 10px;">조회자 ('+viewerIds.length+'명)</h3>'
+      +(viewerRows || '<div class="empty">새로 가입했거나 아직 팀원·파트장으로 지정되지 않은 사람이 없습니다.</div>')
+      +(S.canManageRoster ? '<div style="margin-top:16px;font-size:11.5px;color:var(--ink-faint);line-height:1.6;">여기서 팀원 또는 파트장으로 지정하면 위 팀 구성으로 올라가요.</div>' : '')
+    +'</div>';
 
     return '<div class="detail">'
       +'<div class="content-head"><div><h1>설정</h1></div></div>'
       +'<div class="detail-card">'
-        +'<h3 style="font-family:var(--font-d);font-size:14px;margin:0 0 10px;">팀 구성 ('+ids.length+'명)</h3>'
-        +(rows || '<div class="empty">아직 등록된 팀원이 없습니다.</div>')
+        +'<h3 style="font-family:var(--font-d);font-size:14px;margin:0 0 10px;">팀 구성 ('+teamIds.length+'명)</h3>'
+        +(teamRows || '<div class="empty">아직 등록된 팀원이 없습니다.</div>')
         +'<div style="margin-top:16px;font-size:11.5px;color:var(--ink-faint);line-height:1.6;">역할 변경은 파트장 또는 관리자만, 조회 승인은 팀원 또는 파트장이 할 수 있어요.</div>'
       +'</div>'
       + guidelineDocsSettingsHtml()
-      + addNote
+      + viewerSection
     +'</div>';
   }
 
@@ -2816,16 +2825,20 @@
       if(da === db) return (a.name||"").localeCompare(b.name||"","ko");
       return da > db ? -1 : 1;
     });
+    var canDeleteSite = S.isPartLeader || S.isOwner;
     var rows = sortedSites.map(function(s){
       var stat = siteApplyStats(s);
       var remain = stat.total - stat.applied;
       var precision = (s.deadline||"").length===7 ? "month" : "day";
-      return '<button class="row" data-open-site="'+s.id+'">'
-        +'<span class="rowdate mono">'+(s.deadline ? fmtDate(s.deadline, precision) : "마감일 미설정")+'</span>'
-        +'<div class="rowmain"><div class="rowtitle">'+esc(s.name)+'</div></div>'
-        +(stat.afterCount>0 ? '<span class="chip neutral">마감 후 '+stat.afterCount+'건</span>' : '')
-        +(remain>0 ? '<span class="chip pending">미반영 '+remain+'건</span>' : '<span class="chip approved">모두 반영</span>')
-      +'</button>';
+      return '<div class="row-wrap">'
+        +'<button class="row" data-open-site="'+s.id+'">'
+          +'<span class="rowdate mono">'+(s.deadline ? fmtDate(s.deadline, precision) : "마감일 미설정")+'</span>'
+          +'<div class="rowmain"><div class="rowtitle">'+esc(s.name)+'</div></div>'
+          +(stat.afterCount>0 ? '<span class="chip neutral">마감 후 '+stat.afterCount+'건</span>' : '')
+          +(remain>0 ? '<span class="chip pending">미반영 '+remain+'건</span>' : '<span class="chip approved">모두 반영</span>')
+        +'</button>'
+        +(canDeleteSite ? '<button class="row-del" type="button" data-delete-site="'+s.id+'" title="현장 삭제">✕</button>' : '')
+      +'</div>';
     }).join("");
     var listPart = rows ? '<div class="change-list list-roomy">'+rows+'</div>' : '<div class="empty">등록된 현장이 없습니다. 위에서 현장을 추가해보세요.</div>';
 
@@ -2849,6 +2862,20 @@
         toast("현장이 추가되었습니다.");
         location.hash = "#/sites/"+ref.id;
       }).catch(function(err){ console.warn(err); toast("추가 중 오류가 발생했습니다."); });
+    });
+    document.querySelectorAll("[data-delete-site]").forEach(function(btn){
+      btn.addEventListener("click", function(e){
+        e.stopPropagation();
+        var id = btn.getAttribute("data-delete-site");
+        var s = S.sites.find(function(x){ return x.id===id; });
+        if(!confirm('"'+((s&&s.name)||"이 현장")+'"을(를) 삭제할까요? 체크리스트 반영 내역도 함께 사라지고, 되돌릴 수 없어요.')) return;
+        if(!S.db){ toast("삭제 기능을 사용할 수 없습니다."); return; }
+        S.db.doc("sites/"+id).delete().then(function(){
+          S.sites = S.sites.filter(function(x){ return x.id!==id; });
+          toast("현장을 삭제했습니다.");
+          render();
+        }).catch(function(err){ console.warn(err); toast("삭제 중 오류가 발생했습니다."); });
+      });
     });
   }
 
@@ -3066,15 +3093,18 @@
     }).then(function(){ toast("승인요청을 취소했습니다."); })
       .catch(function(err){ console.warn(err); toast("처리 중 오류가 발생했습니다."); });
   }
-  // 승인완료 취소: 승인됨 상태를 승인 대기중으로 되돌린다 (승인 정보 초기화, "다시 열기"와 달리 draft까지 가지 않는다).
-  // approved_by는 uuid 컬럼, approved_at은 timestamptz 컬럼이라 빈 문자열("")을 넣으면 DB에서
-  // 타입 변환 오류가 나서 저장이 실패했었다 — null로 비워야 한다.
+  // 승인완료 취소: 승인됨 상태를 다시 담당자가 수정할 수 있는 draft 상태로 되돌린다(승인·제출 정보 초기화).
+  // 담당자는 현장을 개설해 수정하다가 최종본을 파트장에게 승인요청하고, 승인되면 잠기는 흐름이라 —
+  // 파트장이 승인을 취소하면 곧바로 다시 수정 가능해져야 한다(승인 대기중을 한번 더 거치지 않는다).
+  // approved_by/submitted_by는 uuid 컬럼, approved_at/submitted_at은 timestamptz 컬럼이라 빈 문자열("")을
+  // 넣으면 DB에서 타입 변환 오류가 나서 저장이 실패했었다 — null로 비워야 한다.
   function undoSiteApproval(id){
     if(!S.db || !(S.isPartLeader||S.isOwner)) return;
     S.db.doc("sites/"+id).update({
-      checklistStatus:"pending_approval",
-      approvedById:null, approvedByName:"", approvedAt:null
-    }).then(function(){ toast("승인완료를 취소했습니다."); })
+      checklistStatus:"draft",
+      approvedById:null, approvedByName:"", approvedAt:null,
+      submittedById:null, submittedByName:"", submittedAt:null
+    }).then(function(){ toast("승인을 취소했습니다. 다시 수정할 수 있어요."); })
       .catch(function(err){ console.warn(err); toast("처리 중 오류가 발생했습니다."); });
   }
 
