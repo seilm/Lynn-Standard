@@ -1371,7 +1371,8 @@
     var d = new Date(monthYm ? monthYm+"-01" : ymOf(new Date())+"-01");
     // 부서별로 조회할 때는 부제목 문구랑 실행지침서 최신 개정 기준선 줄을 안 보여준다 — 부서명 제목만으로 충분하고, 두 줄이 화면을 복잡하게 만들어서.
     var metaText = monthYm ? '해당 월에 등록·승인된 실행 편성 기준 변경 이력' : (S.filters.department ? "" : '전체 공종의 실행 편성 기준 변경 이력 (최신순)');
-    var head = deptBackLink + '<div class="content-head"><div><h1 id="listHeading"'+(S.filters.department?' class="dept-heading"':'')+'>'+esc(heading)+'</h1>'
+    var headingInner = S.filters.department ? '<span class="dept-bar"></span>'+esc(heading) : esc(heading);
+    var head = deptBackLink + '<div class="content-head"><div><h1 id="listHeading"'+(S.filters.department?' class="dept-heading"':'')+'>'+headingInner+'</h1>'
       +(metaText ? '<div class="meta">'+metaText+'</div>' : '')+'</div>';
     if(monthYm){
       var prevD = new Date(d); prevD.setMonth(prevD.getMonth()-1);
