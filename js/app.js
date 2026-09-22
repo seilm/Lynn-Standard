@@ -2555,51 +2555,6 @@
     return S.pdfCache[major];
   }
 
-  // 지침서 PDF는 위아래·좌우 여백이 넓어서 그대로 렌더링하면 실제 내용(표 등)이 작게 보인다.
-  // 돋보기로 확대해서 보는 대신, 렌더링된 캔버스에서 거의 흰색인 여백을 찾아 잘라내
-  // 내용만 화면 너비에 꽉 차게 보이도록 한다. 픽셀 전체를 훑으면 느리므로, 작은 축소본에서
-  // 여백 경계를 찾은 뒤 원본 해상도 좌표로 환산해서 잘라낸다.
-  function cropCanvasToContent(canvas){
-    var W = canvas.width, H = canvas.height;
-    if(!W || !H) return canvas;
-    var sampleW = 240;
-    var sampleH = Math.max(1, Math.round(H * (sampleW / W)));
-    var sc = document.createElement("canvas");
-    sc.width = sampleW; sc.height = sampleH;
-    var sctx = sc.getContext("2d");
-    sctx.drawImage(canvas, 0, 0, sampleW, sampleH);
-    var data;
-    try{ data = sctx.getImageData(0, 0, sampleW, sampleH).data; }catch(e){ return canvas; }
-    var minX = sampleW, minY = sampleH, maxX = 0, maxY = 0, found = false;
-    var threshold = 248; // 이보다 어두운 픽셀이 있으면 "내용"으로 간주 (거의 흰색은 여백)
-    for(var y=0; y<sampleH; y++){
-      for(var x=0; x<sampleW; x++){
-        var idx = (y*sampleW+x)*4;
-        if(data[idx] < threshold || data[idx+1] < threshold || data[idx+2] < threshold){
-          found = true;
-          if(x < minX) minX = x;
-          if(x > maxX) maxX = x;
-          if(y < minY) minY = y;
-          if(y > maxY) maxY = y;
-        }
-      }
-    }
-    if(!found) return canvas;
-    var sx = W / sampleW, sy = H / sampleH;
-    var padX = Math.round((maxX-minX+1) * sx * 0.02) + 6;
-    var padY = Math.round((maxY-minY+1) * sy * 0.02) + 6;
-    var cx0 = Math.max(0, Math.round(minX*sx) - padX);
-    var cy0 = Math.max(0, Math.round(minY*sy) - padY);
-    var cx1 = Math.min(W, Math.round((maxX+1)*sx) + padX);
-    var cy1 = Math.min(H, Math.round((maxY+1)*sy) + padY);
-    var cw = cx1-cx0, ch = cy1-cy0;
-    if(cw <= 0 || ch <= 0) return canvas;
-    var out = document.createElement("canvas");
-    out.width = cw; out.height = ch;
-    out.getContext("2d").drawImage(canvas, cx0, cy0, cw, ch, 0, 0, cw, ch);
-    return out;
-  }
-
   // 대외비 지침서 화면은 캡처 자체를 막을 순 없으니(OS 기능이라 웹에서 차단 불가),
   // 누가 언제 보고 있었는지 옅게 표시해서 화면을 캡처해 유출했을 때 추적이라도 가능하게 한다.
   function docsearchWatermarkSvgUrl(){
@@ -2607,11 +2562,14 @@
     var email = (S.session && S.session.user && S.session.user.email) || "";
     var label = (name + (email ? " · "+email : "")).trim() || "Lynn Standard";
     var stamp = nowIso().slice(0,16).replace("T"," ");
-    var tw = 260, th = 170;
+    // 타일이 좁으면 회전된 글자가 타일 경계에서 잘려 보이므로(다음 타일에서 다시 시작되는 것처럼
+    // 보임), 텍스트를 타일 중심에 가운데정렬로 두고 타일 자체를 글자가 절대 안 잘릴 만큼 넉넉하게 잡는다.
+    var tw = 420, th = 240;
+    var cx = tw/2, cy = th/2;
     var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="'+tw+'" height="'+th+'">'
-      +'<g transform="rotate(-28 '+(tw/2)+' '+(th/2)+')" font-family="Arial, sans-serif" fill="rgba(20,20,20,0.09)">'
-        +'<text x="-20" y="'+(th/2 - 6)+'" font-size="13" font-weight="600">'+esc(label)+'</text>'
-        +'<text x="-20" y="'+(th/2 + 14)+'" font-size="11">'+esc(stamp)+'</text>'
+      +'<g transform="rotate(-28 '+cx+' '+cy+')" font-family="Arial, sans-serif" fill="rgba(20,20,20,0.1)" text-anchor="middle">'
+        +'<text x="'+cx+'" y="'+(cy - 6)+'" font-size="13" font-weight="600">'+esc(label)+'</text>'
+        +'<text x="'+cx+'" y="'+(cy + 14)+'" font-size="11">'+esc(stamp)+'</text>'
       +'</g>'
     +'</svg>';
     return "data:image/svg+xml,"+encodeURIComponent(svg);
@@ -2623,31 +2581,32 @@
       return pdf.getPage(pageNum);
     }).then(function(page){
       if(!document.body.contains(container)) return;
-      var hostWidth = container.clientWidth || 300;
       var baseViewport = page.getViewport({ scale: 1 });
-      var fitScale = hostWidth / baseViewport.width;
       var dpr = Math.min(window.devicePixelRatio || 1, 2);
-      // 여백을 잘라내고 나면 남은 내용이 화면 너비에 맞춰 더 확대되어 보이므로,
-      // 그만큼 더 촘촘한 해상도로 렌더링해둬야 잘라낸 뒤에도 흐려 보이지 않는다.
-      var scale = Math.min(7, fitScale * dpr * 3);
+      // 여백을 잘라 화면 너비에 맞추는 대신, 원본 페이지를 그대로 최대한 고해상도로 렌더링해두고
+      // 확대는 아래 +/- 버튼·Ctrl+휠(wireZoomWidget)로 하게 한다. 캔버스가 지나치게 커지면
+      // 느려지고 브라우저 한도(약 16384px)에 걸릴 수 있어 긴 변 기준 안전 상한을 둔다.
+      var scale = Math.min(4.5, 3 * dpr);
+      var maxDim = 4200;
+      var longSide = Math.max(baseViewport.width, baseViewport.height) * scale;
+      if(longSide > maxDim) scale = scale * (maxDim / longSide);
       var viewport = page.getViewport({ scale: scale });
       var canvas = document.createElement("canvas");
       canvas.width = viewport.width; canvas.height = viewport.height;
       var ctx = canvas.getContext("2d");
       return page.render({ canvasContext: ctx, viewport: viewport }).promise.then(function(){
         if(!document.body.contains(container)) return;
-        var shown = cropCanvasToContent(canvas);
         // 대외비 문서라 마우스 우클릭으로 "이미지를 다른 이름으로 저장"하거나 드래그해서
         // 빼가는 걸 최소한이나마 막아둔다 (화면 캡처 자체는 브라우저 기술로 막을 수 없다).
-        shown.setAttribute("draggable","false");
-        shown.oncontextmenu = function(e){ e.preventDefault(); return false; };
+        canvas.setAttribute("draggable","false");
+        canvas.oncontextmenu = function(e){ e.preventDefault(); return false; };
         container.innerHTML = "";
-        container.appendChild(shown);
+        container.appendChild(canvas);
         var wm = document.createElement("div");
         wm.className = "docsearch-watermark";
         wm.style.backgroundImage = "url('"+docsearchWatermarkSvgUrl()+"')";
         container.appendChild(wm);
-        // 잘라낸 뒤에도 세부 내용을 더 자세히 보고 싶을 수 있어 +/- 버튼이나 Ctrl+휠로 확대할 수 있게 한다.
+        // +/- 버튼이나 Ctrl+휠로 확대해서 세부 내용을 더 자세히 볼 수 있게 한다.
         try{ wireZoomWidget("docsearch", container.parentElement, container, true); }catch(e){}
       });
     }).catch(function(err){
