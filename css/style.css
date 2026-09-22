@@ -138,6 +138,8 @@ img{ max-width:100%; }
     display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;
   }
   .icon-btn:hover{ border-color:var(--accent); }
+  .icon-btn:disabled{ opacity:.4; cursor:not-allowed; }
+  .icon-btn:disabled:hover{ border-color:var(--line); }
   .avatar{ width:28px; height:28px; border-radius:999px; object-fit:cover; border:1px solid rgba(255,255,255,.3); background:var(--avatar-bg); }
 
   .who{ display:flex; align-items:center; gap:2px; flex-shrink:0; }
@@ -162,7 +164,7 @@ img{ max-width:100%; }
   }
   .topbar .icon-btn:hover{ background:var(--header-chip-bg); border-color:transparent; color:var(--header-ink); }
   .topbar-actions .btn.accent{
-    padding:6px 10px; font-size:12px; background:none; border:none; box-shadow:none; color:var(--header-accent); font-weight:600;
+    padding:6px 10px; font-size:12px; background:none; border:none; box-shadow:none; color:var(--header-accent); font-weight:700;
   }
   .topbar-actions .btn.accent:hover{ filter:none; box-shadow:none; text-decoration:underline; }
 
@@ -192,14 +194,14 @@ img{ max-width:100%; }
   }
   .cat-root:hover{ background:var(--surface-2); }
   .cat-root.on{ background:var(--surface-2); border-color:transparent; color:var(--ink); }
-  .cat-root.on .cnt{ color:var(--ink-soft); opacity:1; }
   .cat-root-dot{
     width:8px; height:8px; border-radius:999px; flex-shrink:0; box-sizing:border-box;
     background:var(--surface); border:1.5px solid var(--ink-faint);
   }
   .cat-root.on .cat-root-dot{ background:var(--ink-soft); border-color:var(--ink-soft); }
   .cat-root-label{ flex:1; padding:2px 0; cursor:pointer; }
-  .cat-root .cnt{ font-size:11px; font-weight:700; color:var(--ink-faint); font-variant-numeric:tabular-nums; }
+  /* 대공종 이름(.cat-root-label)과 옆 숫자(.cnt)가 같은 진한 색으로 보이도록 부모 글자색을 그대로 물려받는다. */
+  .cat-root .cnt{ font-size:11px; font-weight:700; color:inherit; font-variant-numeric:tabular-nums; }
   .cat-toggle{
     width:17px; height:17px; flex-shrink:0; border-radius:5px; border:1px solid var(--line);
     background:var(--surface); color:var(--ink-soft); font-size:11px; line-height:1;
@@ -241,6 +243,7 @@ img{ max-width:100%; }
   .stat-tile .n{ font-size:20px; font-weight:700; line-height:1.1; letter-spacing:-0.02em; font-variant-numeric:tabular-nums; color:var(--accent); }
   .stat-tile .l{ font-size:10.5px; color:var(--ink-faint); margin-top:3px; }
   .stat-tile.amber .n{ color:var(--amber); }
+  .stat-tile.orange .n{ color:var(--header-accent); }
   @media (max-width:560px){
     .stat-row{ flex-direction:column; }
     .stat-tile{ border-right:none; border-bottom:1px solid var(--line-soft); }
@@ -319,24 +322,23 @@ img{ max-width:100%; }
   .fact .k{ color:var(--ink-faint); margin-bottom:3px; }
   .fact .v{ font-weight:600; }
   .fact-line{
-    display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:4px 0; margin:14px 0 18px;
-    padding:12px 14px; background:var(--surface-2); border-radius:var(--radius); border:1px solid var(--line-soft);
+    display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:6px 0; margin:14px 0 18px;
+    padding:12px 2px; background:var(--surface-2); border-radius:var(--radius); border:1px solid var(--line-soft);
   }
   @media (max-width:720px){ .fact-line{ grid-template-columns:repeat(2, minmax(0,1fr)); } }
   @media (max-width:420px){ .fact-line{ grid-template-columns:1fr; } }
-  .fact-line .fl-item{ display:flex; flex-direction:column; gap:3px; min-width:0; padding:0 14px; }
-  .fact-line .fl-item:first-child{ padding-left:0; }
-  .fact-line .fl-item:last-child{ padding-right:0; }
-  .fact-line .fl-item:not(:first-child){ border-left:1px solid var(--line); }
+  /* 네 칸 모두 좌우 여백을 똑같이 줘서(첫/끝 칸만 여백 0이던 예전과 달리) 진짜 1/4씩 나뉜 것처럼
+     보이게 한다 — 칸 사이 구분선(border-left)만 첫 칸에서 생략한다. */
+  .fact-line .fl-item{ display:flex; flex-direction:column; gap:3px; min-width:0; padding:0 16px; border-left:1px solid var(--line); }
+  .fact-line .fl-item:first-child{ border-left:none; }
   @media (max-width:720px) and (min-width:421px){
-    .fact-line .fl-item{ padding:8px 14px 0; border-left:1px solid var(--line); }
-    .fact-line .fl-item:nth-child(odd){ padding-left:0; border-left:none; }
-    .fact-line .fl-item:nth-child(even){ padding-right:0; }
+    .fact-line .fl-item{ padding:8px 16px 0; }
+    .fact-line .fl-item:nth-child(odd){ border-left:none; }
     .fact-line .fl-item:nth-child(-n+2){ padding-top:0; }
     .fact-line .fl-item:nth-child(n+3){ border-top:1px solid var(--line); padding-top:8px; }
   }
   @media (max-width:420px){
-    .fact-line .fl-item{ padding:8px 0 0; border-left:none!important; }
+    .fact-line .fl-item{ padding:8px 4px 0; border-left:none!important; }
     .fact-line .fl-item:first-child{ padding-top:0; }
     .fact-line .fl-item:not(:first-child){ border-top:1px solid var(--line); }
   }
@@ -410,8 +412,10 @@ img{ max-width:100%; }
   .site-control-row .row-spacer{ flex:1 1 auto; }
   .site-control-row .chip{ flex-shrink:0; }
   .site-control-row .btn{ padding:5px 12px; font-size:11.5px; font-weight:500; }
-  .site-control-row .site-action-group{ display:flex; flex-direction:column; align-items:flex-end; gap:5px; flex-shrink:0; }
   @media (max-width:560px){ .site-control-row .row-spacer{ flex-basis:100%; height:0; } }
+  /* 승인대기중/승인됨 상태일 때는 박스 안이 아니라 박스 바로 위, 오른쪽 끝에 상태 표시+버튼을 둔다. */
+  .site-status-row{ display:flex; justify-content:flex-end; align-items:center; gap:8px; margin:0 2px 8px; flex-wrap:wrap; }
+  .site-status-row .btn{ padding:5px 12px; font-size:11.5px; font-weight:500; }
   .site-progress{ margin:10px 0 16px; }
   .site-progress-bar{ height:8px; border-radius:999px; background:var(--surface-2); border:1px solid var(--line-soft); overflow:hidden; }
   .site-progress-fill{ height:100%; background:var(--good); border-radius:999px; transition:width .25s ease; }

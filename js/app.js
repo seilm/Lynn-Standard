@@ -108,8 +108,8 @@
   function statusLabel(st){ return st==="approved" ? "승인됨" : st==="pending" ? "대기중" : "반려됨"; }
   function statusChip(st){ return '<span class="chip '+st+'">'+statusLabel(st)+'</span>'; }
   function urgencyChip(u){
-    if(u==="required") return '<span class="chip urgent-required">🔴 필수반영</span>';
-    if(u==="confirm") return '<span class="chip urgent-confirm">🟡 확인필요</span>';
+    if(u==="required") return '<span class="chip urgent-required">필수반영</span>';
+    if(u==="confirm") return '<span class="chip urgent-confirm">확인필요</span>';
     return "";
   }
   function canEditChange(c){
@@ -836,6 +836,10 @@
     if(!parts[0] || listLikeRoutes.indexOf(parts[0])!==-1){
       S.lastListHash = location.hash || "#/";
     }
+    // 확인필요/필수반영 필터는 목록 화면(홈 · 월별 · 부서별)에만 있는 버튼이라, 그 화면을 벗어나면
+    // 다음에 목록으로 돌아왔을 때도 계속 걸려있지 않도록 여기서 풀어준다.
+    var urgencyFilterRoute = !parts[0] || parts[0]==="month" || (parts[0]==="dept" && parts[1]);
+    if(!urgencyFilterRoute && S.filters.urgency){ S.filters.urgency = null; }
     var body = "";
     if((parts[0] === "new" || parts[0] === "edit") && !canWrite()){
       body = renderMessage("등록 권한이 없습니다", "신규 등록·수정은 팀원 또는 파트장으로 지정된 분만 할 수 있어요. 권한이 필요하면 파트장 또는 관리자에게 설정 페이지에서 추가해달라고 요청해주세요.");
@@ -1072,6 +1076,9 @@
     document.querySelectorAll("[data-nav-month]").forEach(function(el){
       el.addEventListener("click", function(){ location.hash = "#/month/"+el.getAttribute("data-nav-month"); });
     });
+    document.querySelectorAll("[data-go-back]").forEach(function(el){
+      el.addEventListener("click", function(e){ e.preventDefault(); history.back(); });
+    });
     var si = document.getElementById("searchInput");
     if(si){
       si.addEventListener("input", function(){ S.filters.q = si.value; renderListInPlace(); });
@@ -1181,7 +1188,8 @@
 
   function viewList(monthYm){
     var routeParts = route();
-    var deptBackLink = (routeParts[0]==="dept" && routeParts[1]) ? '<a class="back-link" href="#/dept">&larr; 부서 목록으로</a>' : "";
+    var deptBackLink = (routeParts[0]==="dept" && routeParts[1]) ? '<a class="back-link" href="#/dept">&larr; 부서 목록으로</a>'
+      : (monthYm ? '<a class="back-link" href="#" data-go-back="1">&larr; 이전으로</a>' : "");
     var scopeParts = [];
     if(S.filters.department) scopeParts.push(S.filters.department);
     if(S.filters.minor) scopeParts.push(S.filters.minor); else if(S.filters.major) scopeParts.push(S.filters.major);
@@ -1192,10 +1200,12 @@
     if(monthYm){
       var prevD = new Date(d); prevD.setMonth(prevD.getMonth()-1);
       var nextD = new Date(d); nextD.setMonth(nextD.getMonth()+1);
+      var curYmForNav = ymOf(new Date());
+      var atCurrentMonth = monthYm >= curYmForNav;
       head += '<div class="month-nav">'
         +'<button class="icon-btn" data-nav-month="'+ymOf(prevD)+'">‹</button>'
-        +'<input type="month" id="monthPick" value="'+monthYm+'" style="padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);">'
-        +'<button class="icon-btn" data-nav-month="'+ymOf(nextD)+'">›</button>'
+        +'<input type="month" id="monthPick" value="'+monthYm+'" max="'+curYmForNav+'" style="padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);">'
+        +'<button class="icon-btn" data-nav-month="'+ymOf(nextD)+'"'+(atCurrentMonth?' disabled':'')+'>›</button>'
       +'</div>';
     }
     head += '</div>';
@@ -1206,7 +1216,7 @@
       var thisMonthCount = S.changes.filter(function(c){ return (c.changeDate||"").slice(0,7)===curYm; }).length;
       statBar = '<div class="stat-row">'
         +'<button class="stat-tile" type="button" data-stat="all"><div class="n mono">'+S.changes.filter(function(c){return c.status==="approved";}).length+'</div><div class="l">전체 등록 건수</div></button>'
-        +'<button class="stat-tile" type="button" data-stat="month"><div class="n mono">'+thisMonthCount+'</div><div class="l">이번달 변경 건수</div></button>'
+        +'<button class="stat-tile orange" type="button" data-stat="month"><div class="n mono">'+thisMonthCount+'</div><div class="l">이번달 변경 건수</div></button>'
         +'<button class="stat-tile amber" type="button" data-stat="pending"><div class="n mono">'+pendingCount()+'</div><div class="l">승인대기 건수</div></button>'
       +'</div>';
     }
@@ -1221,7 +1231,7 @@
 
   function filterRow(){
     var statuses = [["approved","승인됨"],["pending","대기중"],["rejected","반려됨"],["all","전체"]];
-    var urgencies = [["confirm","urgency-confirm","🟡 확인필요"],["required","urgency-required","🔴 필수반영"]];
+    var urgencies = [["confirm","urgency-confirm","확인필요"],["required","urgency-required","필수반영"]];
     var html = '<div class="filter-row">';
     statuses.forEach(function(s){
       html += '<button class="pill'+(S.filters.status===s[0]?' on':'')+'" data-status="'+s[0]+'">'+s[1]+'</button>';
@@ -1332,7 +1342,12 @@
     var clearDept = document.querySelector("[data-clear-dept]");
     if(clearDept) clearDept.addEventListener("click", function(){ S.filters.department=null; location.hash="#/"; render(); });
     var mp = document.getElementById("monthPick");
-    if(mp) mp.addEventListener("change", function(){ location.hash = "#/month/"+mp.value; });
+    if(mp) mp.addEventListener("change", function(){
+      var v = mp.value;
+      var curYmForNav = ymOf(new Date());
+      if(v > curYmForNav) v = curYmForNav; // 현재 달 이후로는 못 넘어가게
+      location.hash = "#/month/"+v;
+    });
     document.querySelectorAll("[data-stat]").forEach(function(el){
       el.addEventListener("click", function(){
         var v = el.getAttribute("data-stat");
@@ -1644,7 +1659,7 @@
         +'</div>'
         +'<div class="f-grid">'
           +'<div class="f-field full"><label for="f-title">핵심 제목</label><input id="f-title" type="text" placeholder="예: 이동식 미스트 반영" maxlength="80"></div>'
-          +'<div class="f-field full"><label for="f-summary">실행 반영 내용 (실행편성 담당자가 바로 알아야 할 내용)</label><textarea id="f-summary" placeholder="예: 500세대 이하 2대, +500세대 마다 1대"></textarea></div>'
+          +'<div class="f-field full"><label for="f-summary">실행 반영 내용</label><textarea id="f-summary" placeholder="예: 500세대 이하 2대, +500세대 마다 1대"></textarea></div>'
         +'</div>'
         +'<details class="f-details" id="secExec"><summary>실행양식 (선택 — 품명/규격/단위/수량)</summary><div class="f-details-body">'
           +'<div id="execRows"></div>'
@@ -1909,7 +1924,8 @@
   /* ============ approvals ============ */
   function viewApprovals(){
     var items = S.changes.filter(function(c){ return c.status==="pending"; });
-    var head = '<div class="content-head"><div><h1>승인 대기</h1><div class="meta">'+(S.isPartLeader?"파트장 승인이 필요한 항목입니다.":"파트장만 승인·반려할 수 있어요.")+'</div></div></div>';
+    var head = '<a class="back-link" href="#" data-go-back="1">&larr; 이전으로</a>'
+      + '<div class="content-head"><div><h1>승인 대기</h1><div class="meta">'+(S.isPartLeader?"파트장 승인이 필요한 항목입니다.":"파트장만 승인·반려할 수 있어요.")+'</div></div></div>';
     if(!items.length) return head + '<div class="empty">현재 승인 대기 중인 항목이 없습니다.</div>';
     // .map(rowHtml)로 바로 넘기면 Array.map이 두 번째 인자로 배열 인덱스를 넘겨서 그게 hideCat으로 읽혀
     // (0번째=false→칩 표시, 1번째 이후=truthy→칩 숨김) 목록에서 공종 칩이 첫 항목에만 보이는 버그가 있었다.
@@ -2708,28 +2724,30 @@
     var locked = siteChecklistLocked(s);
     var deadlineEditable = !locked && canWrite();
 
-    // 상단 액션 영역: draft 상태에서만 저장 버튼이 승인요청 왼쪽에 온다.
-    // 승인대기중/승인됨 상태는 체크리스트/마감일이 잠겨서 저장할 내용이 없으므로 저장 버튼을 보이지 않는다.
+    // 상단 액션 영역: draft 상태에서만 저장/승인요청 버튼이 마감일/담당자 박스 안, 오른쪽에 들어간다.
+    // 승인대기중/승인됨 상태는 체크리스트/마감일이 잠겨서 저장할 내용이 없으므로, 박스 안이 아니라
+    // 박스 바로 위에 상태 표시(칩)+버튼을 따로 둔다.
     var saveHtml = canWrite() ? '<button class="btn ghost" id="saveSiteAll" type="button">저장</button>' : "";
     var actionHtml = "";
+    var statusRowHtml = "";
     if(status === "draft"){
       actionHtml = saveHtml + (canWrite() ? '<button class="btn" id="btnRequestSiteApproval" type="button">승인요청</button>' : "");
     } else if(status === "pending_approval"){
       if(S.isPartLeader){
-        actionHtml = '<div class="site-action-group"><span class="chip pending">승인 대기중</span>'
-          + '<button class="btn" id="btnApproveSite" type="button">승인</button></div>';
+        statusRowHtml = '<span class="chip pending">승인 대기중</span>'
+          + '<button class="btn" id="btnApproveSite" type="button">승인</button>';
       } else if(canWrite()){
-        actionHtml = '<div class="site-action-group"><span class="chip pending">승인 대기중</span>'
-          + '<button class="btn ghost" id="btnCancelSiteRequest" type="button">승인요청 취소</button></div>';
+        statusRowHtml = '<span class="chip pending">승인 대기중</span>'
+          + '<button class="btn ghost" id="btnCancelSiteRequest" type="button">승인요청 취소</button>';
       } else {
-        actionHtml = '<span class="chip pending">승인 대기중</span>';
+        statusRowHtml = '<span class="chip pending">승인 대기중</span>';
       }
     } else if(status === "approved"){
       if(S.isPartLeader || S.isOwner){
-        actionHtml = '<div class="site-action-group"><span class="chip approved">승인됨</span>'
-          + '<button class="btn ghost" id="btnUndoSiteApproval" type="button">승인완료 취소</button></div>';
+        statusRowHtml = '<span class="chip approved">승인됨</span>'
+          + '<button class="btn ghost" id="btnUndoSiteApproval" type="button">승인완료 취소</button>';
       } else {
-        actionHtml = '<span class="chip approved">승인됨</span>';
+        statusRowHtml = '<span class="chip approved">승인됨</span>';
       }
     }
 
@@ -2739,14 +2757,14 @@
       return '<option value="'+esc(x.id)+'"'+(draft.managerId===x.id?' selected':'')+'>'+esc(x.name)+'</option>';
     }).join("");
 
-    var controlCard = '<div class="detail-card site-control-row">'
-      +'<label for="s-deadline-edit">실행 마감일</label>'
-      +'<input id="s-deadline-edit" type="date" value="'+esc(draft.deadline||"")+'"'+(deadlineEditable?'':' disabled')+'>'
-      +'<label for="s-manager-edit">담당자</label>'
-      +'<select id="s-manager-edit"'+(canWrite()?'':' disabled')+'>'+managerOptions+'</select>'
-      +'<span class="row-spacer"></span>'
-      +actionHtml
-    +'</div>';
+    var controlCard = (statusRowHtml ? '<div class="site-status-row">'+statusRowHtml+'</div>' : '')
+      + '<div class="detail-card site-control-row">'
+        +'<label for="s-deadline-edit">실행 마감일</label>'
+        +'<input id="s-deadline-edit" type="date" value="'+esc(draft.deadline||"")+'"'+(deadlineEditable?'':' disabled')+'>'
+        +'<label for="s-manager-edit">담당자</label>'
+        +'<select id="s-manager-edit"'+(canWrite()?'':' disabled')+'>'+managerOptions+'</select>'
+        +(actionHtml ? '<span class="row-spacer"></span>'+actionHtml : '')
+      +'</div>';
 
     var guidelineCard = "";
     if(guidelineHasAnyDocs()){
@@ -2778,7 +2796,7 @@
     var afterNote = "";
     if(mode === "after"){
       afterNote = '<div class="after-heading">⚠️ 실행마감('+fmtDate(draft.deadline,deadlinePrecision)+') 이후 변경된 기준</div>'
-        +'<div class="after-desc">'+esc(s.name)+'의 실행에는 자동으로 반영되지 않았어요 — 참고용으로만 확인하세요.</div>';
+        +'<div class="after-desc">'+esc(s.name)+'의 실행에는 반영되지 않았어요 — 참고용으로만 확인하세요.</div>';
     }
 
     var progress = "";
