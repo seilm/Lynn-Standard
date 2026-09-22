@@ -1369,8 +1369,10 @@
     if(S.filters.minor) scopeParts.push(S.filters.minor); else if(S.filters.major) scopeParts.push(S.filters.major);
     var heading = monthYm ? fmtYm(monthYm)+" 변경사항" : (scopeParts.length ? scopeParts.join(" · ") : "전체 공종 · 최근 변경");
     var d = new Date(monthYm ? monthYm+"-01" : ymOf(new Date())+"-01");
+    // 부서별로 조회할 때는 부제목 문구랑 실행지침서 최신 개정 기준선 줄을 안 보여준다 — 부서명 제목만으로 충분하고, 두 줄이 화면을 복잡하게 만들어서.
+    var metaText = monthYm ? '해당 월에 등록·승인된 실행 편성 기준 변경 이력' : (S.filters.department ? "" : '전체 공종의 실행 편성 기준 변경 이력 (최신순)');
     var head = deptBackLink + '<div class="content-head"><div><h1 id="listHeading">'+esc(heading)+'</h1>'
-      +'<div class="meta">'+(monthYm ? '해당 월에 등록·승인된 실행 편성 기준 변경 이력' : '전체 공종의 실행 편성 기준 변경 이력 (최신순)')+'</div></div>';
+      +(metaText ? '<div class="meta">'+metaText+'</div>' : '')+'</div>';
     if(monthYm){
       var prevD = new Date(d); prevD.setMonth(prevD.getMonth()-1);
       var nextD = new Date(d); nextD.setMonth(nextD.getMonth()+1);
@@ -2154,7 +2156,6 @@
     var viewerSection = '<div class="detail-card" style="margin-top:14px;">'
       +'<h3 style="font-family:var(--font-d);font-size:14px;margin:0 0 10px;">조회자 ('+viewerIds.length+'명)</h3>'
       +(viewerRows || '<div class="empty">새로 가입했거나 아직 팀원·파트장으로 지정되지 않은 사람이 없습니다.</div>')
-      +(S.canManageRoster ? '<div style="margin-top:16px;font-size:11.5px;color:var(--ink-faint);line-height:1.6;">여기서 팀원 또는 파트장으로 지정하면 위 팀 구성으로 올라가요.</div>' : '')
     +'</div>';
 
     return '<div class="detail">'
@@ -2165,6 +2166,7 @@
         +'<div style="margin-top:16px;font-size:11.5px;color:var(--ink-faint);line-height:1.6;">역할 변경은 파트장 또는 관리자만, 조회 승인은 팀원 또는 파트장이 할 수 있어요.</div>'
       +'</div>'
       + guidelineDocsSettingsHtml()
+      + guidelineHistorySettingsHtml()
       + viewerSection
     +'</div>';
   }
@@ -2200,23 +2202,31 @@
             +'<input type="file" accept="application/pdf" data-gdoc-upload="'+esc(major)+'"></label>';
         }
       }
-      var revs = guidelineRevisionsFor(major);
-      var historyHtml = "";
-      if(revs.length){
-        historyHtml = '<details class="gdoc-history">'
-          +'<summary>변경 이력 ('+revs.length+'건)</summary>'
-          + revs.map(function(r){
-              return '<div class="gdoc-history-row"><span class="mono">'+fmtDate((r.uploadedAt||"").slice(0,10),"day")+'판</span><span class="gdoc-history-file">'+esc(r.fileName||"")+'</span><span class="gdoc-history-by">'+esc(r.uploadedByName||"")+'</span>'
-                +(S.canManageRoster ? '<button class="gdoc-history-del" type="button" data-gdoc-revdelete="'+esc(r.id)+'" title="이 이력 삭제">✕</button>' : '')
-              +'</div>';
-            }).join("")
-        +'</details>';
-      }
-      return '<div class="gdoc-row"><span class="gname">'+esc(major)+'</span><span class="gmeta">'+meta+'</span>'+control+pendingHtml+historyHtml+'</div>';
+      return '<div class="gdoc-row"><span class="gname">'+esc(major)+'</span><span class="gmeta">'+meta+'</span>'+control+pendingHtml+'</div>';
     }).join("");
     return '<div class="detail-card" style="margin-top:14px;">'
       +'<h3 style="font-family:var(--font-d);font-size:14px;margin:0 0 10px;">실행지침서 (PDF)</h3>'
       + rows
+    +'</div>';
+  }
+
+  // 업로드/교체 칸이랑 섞여서 복잡해 보이던 변경 이력 조회를 별도 카드로 분리했다.
+  function guidelineHistorySettingsHtml(){
+    var blocks = MAJORS.map(function(major){
+      var revs = guidelineRevisionsFor(major);
+      if(!revs.length) return "";
+      return '<details class="gdoc-history-block">'
+        +'<summary>'+esc(major)+' <span class="gdoc-history-count">('+revs.length+'건)</span></summary>'
+        + revs.map(function(r){
+            return '<div class="gdoc-history-row"><span class="mono">'+fmtDate((r.uploadedAt||"").slice(0,10),"day")+'판</span><span class="gdoc-history-file">'+esc(r.fileName||"")+'</span><span class="gdoc-history-by">'+esc(r.uploadedByName||"")+'</span>'
+              +(S.canManageRoster ? '<button class="gdoc-history-del" type="button" data-gdoc-revdelete="'+esc(r.id)+'" title="이 이력 삭제">✕</button>' : '')
+            +'</div>';
+          }).join("")
+      +'</details>';
+    }).join("");
+    return '<div class="detail-card" style="margin-top:14px;">'
+      +'<h3 style="font-family:var(--font-d);font-size:14px;margin:0 0 10px;">실행지침서 변경 이력</h3>'
+      +(blocks || '<div class="empty">아직 이력이 없습니다.</div>')
     +'</div>';
   }
 
@@ -2362,6 +2372,7 @@
   }
   function guidelineBaselineBannerHtml(monthYm){
     if(monthYm) return "";
+    if(S.filters.department) return ""; // 부서별 조회 화면에서는 안 보여준다 (부제목과 함께 정리).
     var majorsToShow = S.filters.major ? [S.filters.major] : MAJORS;
     var chips = majorsToShow.map(function(m){
       var base = guidelineBaselineDate(m);
@@ -2715,7 +2726,7 @@
   // 현장별로 어느 판(개정일)의 지침서가 반영됐는지, 과거 변경 이력 중에서 직접 골라 기록할 수 있게 한다.
   // "공통가설 26.08.18 판 / 건축 26.09.21판 / 현장관리비 26.09.21판" 처럼 한 줄에 들어오도록
   // 공종마다 칩 대신 짧은 라벨 + 드롭다운으로 구성하고, 옵션에서도 파일명은 빼고 판(날짜)만 보여준다.
-  function siteGuidelineControlsHtml(appliedGuidelines){
+  function siteGuidelineControlsHtml(appliedGuidelines, editable){
     var applied = appliedGuidelines || {};
     var items = MAJORS.map(function(m){
       var doc = S.guidelineDocs[m];
@@ -2735,7 +2746,7 @@
       }).join("");
       var hint = stale ? ' title="최신 지침서가 개정됐어요 (최신 '+esc(base)+')"' : '';
       return '<span class="gapply-item gs-'+statusClass+'"'+hint+'><b class="gapply-mname">'+esc(m)+'</b>'
-        +'<select class="gapply-select" data-gapply-major="'+esc(m)+'"'+(canWrite()?'':' disabled')+'>'+options+'</select>'
+        +'<select class="gapply-select" data-gapply-major="'+esc(m)+'"'+(editable?'':' disabled')+'>'+options+'</select>'
       +'</span>';
     }).filter(Boolean);
     return items.join("");
@@ -2967,7 +2978,7 @@
         +'<label for="s-deadline-edit">실행 마감일</label>'
         +'<input id="s-deadline-edit" type="date" value="'+esc(draft.deadline||"")+'"'+(deadlineEditable?'':' disabled')+'>'
         +'<label for="s-manager-edit" class="field-sep">담당자</label>'
-        +'<select id="s-manager-edit"'+(canWrite()?'':' disabled')+'>'+managerOptions+'</select>'
+        +'<select id="s-manager-edit"'+(deadlineEditable?'':' disabled')+'>'+managerOptions+'</select>'
         +(actionHtml ? '<span class="site-actions">'+actionHtml+'</span>' : '')
       +'</div>';
 
@@ -2976,8 +2987,8 @@
       guidelineCard = '<h3 class="gapply-heading">지침서 기준 시점</h3>'
         +'<div class="detail-card gapply-card">'
           +'<div class="gapply-row-wrap">'
-            +'<div class="gapply-line">' + siteGuidelineControlsHtml(draft.appliedGuidelines) + '</div>'
-            + (canWrite() ? '<button class="btn" id="stampSiteGuidelineBtn" type="button">현재 지침서 기준으로 채우기</button>' : '')
+            +'<div class="gapply-line">' + siteGuidelineControlsHtml(draft.appliedGuidelines, deadlineEditable) + '</div>'
+            + (deadlineEditable ? '<button class="btn" id="stampSiteGuidelineBtn" type="button">현재 지침서 기준으로 채우기</button>' : '')
           +'</div>'
         +'</div>';
     }
