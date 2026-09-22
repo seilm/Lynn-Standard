@@ -105,7 +105,7 @@ create table if not exists public.changes (
   minor text not null,
   title text not null,
   summary text not null,
-  department text not null default '건축예산팀',  -- 유관부서 (건축예산팀/건축기획팀/품질기술팀/설계팀/상품기획팀/인테리어팀/외주관리팀/자재구매팀/스마트기술팀/안전보건실)
+  department text not null default '건축예산팀',  -- 유관부서 (건축예산팀/건축기획팀/품질기술팀/설계팀/상품기획팀/인테리어팀/외주관리팀/자재구매팀/스마트기술팀/안전보건실/경영지원팀)
   change_date text not null,           -- "YYYY-MM-DD" 또는 "YYYY-MM" (월 단위 정밀도 지원)
   effective_date text,
   effective_scope text default '전현장',
