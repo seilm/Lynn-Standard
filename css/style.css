@@ -638,11 +638,24 @@ img{ max-width:100%; }
   .docsearch-viewer-head .back{ font-size:11.5px; color:var(--ink-soft); flex-shrink:0; background:none; border:none; padding:0; }
   .docsearch-viewer-head .back:hover{ color:var(--accent); }
   .docsearch-viewer-head .vt{ font-size:12px; font-weight:600; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .docsearch-viewer-openlink{ font-size:11px; color:var(--accent); flex-shrink:0; font-weight:600; }
   .docsearch-viewer-nav{ display:flex; align-items:center; gap:10px; padding:8px 14px; border-bottom:1px solid var(--line-soft); flex-shrink:0; }
   .docsearch-viewer-nav .pg{ font-size:11.5px; color:var(--ink-soft); flex:1; text-align:center; }
-  .docsearch-viewport{ flex:1; overflow:auto; background:#f3f3f1; padding:10px; min-height:0; }
-  .docsearch-viewport canvas{ width:100%; display:block; box-shadow:0 1px 4px rgba(0,0,0,.18); background:#fff; }
+  /* 대외비 지침서라 뷰어 안에서는 우클릭 저장이나 드래그, 글자 드래그 선택이 안 되게 해둔다.
+     (화면 캡처는 OS 기능이라 브라우저 쪽에서 막을 방법이 없다.) */
+  .docsearch-viewport{
+    flex:1; overflow:auto; background:#f3f3f1; padding:10px; min-height:0;
+    -webkit-user-select:none; -moz-user-select:none; user-select:none;
+  }
+  .docsearch-viewport canvas{
+    width:100%; display:block; box-shadow:0 1px 4px rgba(0,0,0,.18); background:#fff;
+    -webkit-user-drag:none; pointer-events:auto;
+  }
+  .docsearch-viewer-host{ position:relative; }
+  /* 캡처해서 유출됐을 때 누가 언제 보고 있었는지 알 수 있게 옅게 겹쳐 보이는 워터마크. */
+  .docsearch-watermark{
+    position:absolute; inset:0; background-repeat:repeat; pointer-events:none; z-index:2;
+  }
+  @media print{ .docsearch-panel{ display:none!important; } }
 
   /* ---- 설정: 실행지침서 관리 ---- */
   .gdoc-row{ display:flex; align-items:center; gap:10px; padding:11px 4px; border-bottom:1px solid var(--line-soft); flex-wrap:wrap; }

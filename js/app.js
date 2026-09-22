@@ -2537,9 +2537,7 @@
     var doc = S.guidelineDocs[v.major];
     var title = v.major + ' · ' + v.page + '/' + (doc?doc.pageCount:'?') + '페이지';
     return '<div class="docsearch-viewer">'
-      +'<div class="docsearch-viewer-head"><button class="back" id="docsearchBackBtn" type="button">&larr; 검색결과</button><span class="vt">'+esc(title)+'</span>'
-        +(doc && doc.url ? '<a class="docsearch-viewer-openlink" href="'+doc.url+'#page='+v.page+'" target="_blank" rel="noopener">새 창 ↗</a>' : '')
-      +'</div>'
+      +'<div class="docsearch-viewer-head"><button class="back" id="docsearchBackBtn" type="button">&larr; 검색결과</button><span class="vt">'+esc(title)+'</span></div>'
       +'<div class="docsearch-viewer-nav">'
         +'<button class="icon-btn" id="docsearchPrevBtn" style="width:26px;height:26px;" aria-label="이전 페이지"'+(v.page<=1?' disabled':'')+'>&larr;</button>'
         +'<span class="pg mono">'+v.page+' / '+(doc?doc.pageCount:'?')+'</span>'
@@ -2602,6 +2600,23 @@
     return out;
   }
 
+  // 대외비 지침서 화면은 캡처 자체를 막을 순 없으니(OS 기능이라 웹에서 차단 불가),
+  // 누가 언제 보고 있었는지 옅게 표시해서 화면을 캡처해 유출했을 때 추적이라도 가능하게 한다.
+  function docsearchWatermarkSvgUrl(){
+    var name = S.viewerName || "";
+    var email = (S.session && S.session.user && S.session.user.email) || "";
+    var label = (name + (email ? " · "+email : "")).trim() || "Lynn Standard";
+    var stamp = nowIso().slice(0,16).replace("T"," ");
+    var tw = 260, th = 170;
+    var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="'+tw+'" height="'+th+'">'
+      +'<g transform="rotate(-28 '+(tw/2)+' '+(th/2)+')" font-family="Arial, sans-serif" fill="rgba(20,20,20,0.09)">'
+        +'<text x="-20" y="'+(th/2 - 6)+'" font-size="13" font-weight="600">'+esc(label)+'</text>'
+        +'<text x="-20" y="'+(th/2 + 14)+'" font-size="11">'+esc(stamp)+'</text>'
+      +'</g>'
+    +'</svg>';
+    return "data:image/svg+xml,"+encodeURIComponent(svg);
+  }
+
   function renderSinglePdfPage(container, major, url, pageNum){
     if(!window.pdfjsLib){ container.innerHTML = '<div style="padding:14px;font-size:12px;color:var(--ink-faint);">PDF 미리보기를 사용할 수 없습니다.</div>'; return; }
     getPdfDocProxy(major, url).then(function(pdf){
@@ -2622,8 +2637,16 @@
       return page.render({ canvasContext: ctx, viewport: viewport }).promise.then(function(){
         if(!document.body.contains(container)) return;
         var shown = cropCanvasToContent(canvas);
+        // 대외비 문서라 마우스 우클릭으로 "이미지를 다른 이름으로 저장"하거나 드래그해서
+        // 빼가는 걸 최소한이나마 막아둔다 (화면 캡처 자체는 브라우저 기술로 막을 수 없다).
+        shown.setAttribute("draggable","false");
+        shown.oncontextmenu = function(e){ e.preventDefault(); return false; };
         container.innerHTML = "";
         container.appendChild(shown);
+        var wm = document.createElement("div");
+        wm.className = "docsearch-watermark";
+        wm.style.backgroundImage = "url('"+docsearchWatermarkSvgUrl()+"')";
+        container.appendChild(wm);
         // 잘라낸 뒤에도 세부 내용을 더 자세히 보고 싶을 수 있어 +/- 버튼이나 Ctrl+휠로 확대할 수 있게 한다.
         try{ wireZoomWidget("docsearch", container.parentElement, container, true); }catch(e){}
       });
