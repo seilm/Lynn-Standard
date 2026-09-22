@@ -229,6 +229,8 @@ img{ max-width:100%; }
   @media (max-width:760px){ .content{ padding:14px 14px 60px; } }
   .content-head{ display:flex; align-items:flex-end; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:14px; }
   .content-head h1{ font-family:var(--font-d); font-size:19px; font-weight:700; margin:0; letter-spacing:-0.01em; }
+  /* 부서별 조회 화면에서는 팀 이름 앞에 주황색 바를 세워서 좀 더 눈에 띄게 한다. */
+  .content-head h1.dept-heading{ border-left:4px solid var(--header-accent); padding-left:10px; }
   .content-head .meta{ font-size:12.5px; color:var(--ink-faint); margin-top:3px; }
   .month-nav{ display:flex; align-items:center; gap:6px; }
 
@@ -244,7 +246,7 @@ img{ max-width:100%; }
   .stat-tile:hover{ background:var(--surface-2); }
   .stat-tile .n{ font-size:20px; font-weight:700; line-height:1.1; letter-spacing:-0.02em; font-variant-numeric:tabular-nums; color:var(--accent); }
   .stat-tile .l{ font-size:10.5px; color:var(--ink-faint); margin-top:3px; }
-  .stat-tile.amber .n{ color:var(--amber); }
+  .stat-tile.amber .n{ color:var(--ink); }
   .stat-tile.orange .n{ color:var(--header-accent); }
   @media (max-width:560px){
     .stat-row{ flex-direction:column; }
@@ -426,6 +428,14 @@ img{ max-width:100%; }
     padding:5px 9px; border-radius:7px; border:1px solid var(--line); background:var(--surface);
     color:var(--ink); font-size:12px; min-width:0; max-width:150px;
   }
+  /* 승인완료 상태처럼 잠겨서 수정 못 할 때는 브라우저가 필드마다 다르게 흐리게 처리해서 색이
+     서로 달라 보이던 걸 통일하고, select의 화살표도 없애서 "선택 가능해 보이는" 느낌을 없앤다. */
+  .site-control-row input[type="date"]:disabled,
+  .site-control-row select:disabled{
+    color:var(--ink-soft); opacity:1; -webkit-text-fill-color:var(--ink-soft);
+    background:var(--surface-2); cursor:default;
+  }
+  .site-control-row select:disabled{ appearance:none; -webkit-appearance:none; -moz-appearance:none; background-image:none; }
   .site-control-row .chip{ flex-shrink:0; }
   .site-control-row .btn{ padding:5px 12px; font-size:11.5px; font-weight:500; }
   /* 저장/승인/승인취소 버튼을 박스 맨 오른쪽 끝에 붙인다. */
@@ -679,6 +689,11 @@ img{ max-width:100%; }
   }
   .gapply-select:hover{ background:rgba(0,0,0,.06); }
   .gapply-select:focus-visible{ outline:2px solid var(--accent); outline-offset:1px; }
+  .gapply-select:disabled{
+    appearance:none; -webkit-appearance:none; -moz-appearance:none; background-image:none;
+    opacity:1; -webkit-text-fill-color:currentColor; cursor:default;
+  }
+  .gapply-select:disabled:hover{ background:transparent; }
   .gapply-item.gs-approved{ background:var(--good-soft); border-color:var(--good-line); color:var(--good); }
   .gapply-item.gs-pending{ background:var(--amber-soft); border-color:var(--amber-line); color:var(--amber); }
   .gapply-item.gs-neutral{ background:var(--surface-2); border-color:var(--line); color:var(--ink-faint); }
