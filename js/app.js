@@ -2600,9 +2600,10 @@
     var draft = S.siteDraft;
     if(!draft) return;
     var managerName = draft.managerId ? ((S.members[draft.managerId] && S.members[draft.managerId].name) || "") : "";
+    // manager_id는 uuid 컬럼이라 "미지정" 상태(draft.managerId==="")일 땐 빈 문자열이 아니라 null로 보내야 한다.
     S.db.doc("sites/"+id).update({
       deadline: draft.deadline||"",
-      managerId: draft.managerId||"",
+      managerId: draft.managerId||null,
       managerName: managerName,
       appliedGuidelines: draft.appliedGuidelines||{},
       appliedMap: draft.appliedMap||{},
@@ -2769,9 +2770,9 @@
       + '<div class="detail-card site-control-row">'
         +'<label for="s-deadline-edit">실행 마감일</label>'
         +'<input id="s-deadline-edit" type="date" value="'+esc(draft.deadline||"")+'"'+(deadlineEditable?'':' disabled')+'>'
-        +'<label for="s-manager-edit">담당자</label>'
+        +'<label for="s-manager-edit" class="field-sep">담당자</label>'
         +'<select id="s-manager-edit"'+(canWrite()?'':' disabled')+'>'+managerOptions+'</select>'
-        +(actionHtml ? '<span class="row-spacer"></span>'+actionHtml : '')
+        +(actionHtml ? '<span class="site-actions">'+actionHtml+'</span>' : '')
       +'</div>';
 
     var guidelineCard = "";
@@ -2853,10 +2854,13 @@
     // 승인요청을 누르면, 저장 버튼을 따로 안 눌렀더라도 화면에 입력해둔 초안(실행마감일/담당자/
     // 지침서시점/체크리스트)까지 함께 반영해서 한번에 저장한다 — 그래야 입력 내용이 안 날아간다.
     var draft = S.siteDraft;
+    // manager_id는 uuid 컬럼이라, 담당자를 "미지정"으로 두면(draft.managerId==="") 빈 문자열이
+    // 아니라 null을 보내야 한다 — 새로 만든 현장처럼 담당자를 아직 안 고른 상태에서 승인요청을
+    // 누르면 DB 타입 오류로 저장이 실패하던 게 이 문제였다.
     var data = { checklistStatus:"pending_approval", submittedById:S.viewerId, submittedByName:S.viewerName||"", submittedAt:nowIso() };
     if(draft){
       data.deadline = draft.deadline||"";
-      data.managerId = draft.managerId||"";
+      data.managerId = draft.managerId||null;
       data.managerName = draft.managerId ? ((S.members[draft.managerId] && S.members[draft.managerId].name) || "") : "";
       data.appliedGuidelines = draft.appliedGuidelines||{};
       data.appliedMap = draft.appliedMap||{};
