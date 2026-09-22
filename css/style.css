@@ -460,7 +460,11 @@ img{ max-width:100%; }
   .site-progress-bar{ height:8px; border-radius:999px; background:var(--surface-2); border:1px solid var(--line-soft); overflow:hidden; }
   .site-progress-fill{ height:100%; background:var(--good); border-radius:999px; transition:width .25s ease; }
   .site-progress-label{ font-size:11.5px; color:var(--ink-soft); margin-top:6px; }
-  .check-row{ cursor:default; }
+  /* 날짜·칩·제목이 폰트에 따라 상자 높이가 달라서(칩은 padding 때문에 더 큼) 가운데정렬로는
+     제목만 살짝 아래로 처져 보이는 경우가 있었다. 글자 기준선(baseline)으로 맞추면 상자 높이가
+     달라도 글자끼리는 항상 같은 줄에 있게 된다. 체크박스는 글자가 아니라 별도로 가운데 맞춘다. */
+  .check-row{ cursor:default; align-items:baseline; }
+  .check-row .apply-check{ align-self:center; }
   /* 네이티브 체크박스 대신 직접 그려서, 체크 표시 굵기와 체크됐을 때의 진초록 색을 정확히 제어한다.
      (accent-color로는 브라우저마다 체크 두께를 조절할 수 없고, 행이 흐려질 때 체크박스까지 같이
      뿌옇게 보이는 문제가 있었다.) */
