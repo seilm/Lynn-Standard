@@ -2234,9 +2234,27 @@
       +'</div>';
   }
 
+  // 팀 구성 정렬: (나) 본인이 맨 위, 그 다음 파트장(관리자 포함), 그 뒤로 팀원 — 같은 그룹 안에서는 이름 가나다순.
+  function rosterSortRank(id){
+    if(id === S.viewerId) return 0;
+    var m = S.members[id];
+    return (m.role==="파트장" || m.isAdmin) ? 1 : 2;
+  }
+  function rosterSortName(id){
+    var m = S.members[id];
+    return (m && (m.name || m.displayName)) || "";
+  }
+  function sortRosterIds(ids){
+    return ids.slice().sort(function(a,b){
+      var ra = rosterSortRank(a), rb = rosterSortRank(b);
+      if(ra !== rb) return ra - rb;
+      return rosterSortName(a).localeCompare(rosterSortName(b), "ko");
+    });
+  }
+
   function viewSettings(){
     var ids = Object.keys(S.members);
-    var teamIds = ids.filter(function(id){ return memberIsTeam(S.members[id]); });
+    var teamIds = sortRosterIds(ids.filter(function(id){ return memberIsTeam(S.members[id]); }));
     var viewerIds = ids.filter(function(id){ return !memberIsTeam(S.members[id]); });
     var teamRows = teamIds.map(rosterRowHtml).join("");
     var viewerRows = viewerIds.map(rosterRowHtml).join("");
