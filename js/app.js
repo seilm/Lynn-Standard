@@ -87,6 +87,13 @@
     if(v==null || v==="" || isNaN(n)) return "-";
     return n.toLocaleString("ko-KR");
   }
+  function fmtUnitPrice(v){
+    // 단가는 숫자 외에 "최근발주단가 참고" 같은 안내 문구도 그대로 적을 수 있어야 해서
+    // fmtMoney처럼 숫자가 아니면 "-"로 뭉개지 않고, 적힌 텍스트를 그대로 보여준다.
+    if(v==null || v==="") return "-";
+    var n = parseNum(v);
+    return isNaN(n) ? String(v) : n.toLocaleString("ko-KR");
+  }
   function pad2(n){ return n<10 ? "0"+n : ""+n; }
   function ymOf(d){ return d.getFullYear()+"-"+pad2(d.getMonth()+1); }
   function fmtDate(iso, prec){
@@ -1557,7 +1564,7 @@
 
     var items = (c.execItems||[]).map(function(it){
       return '<tr><td>'+esc(it.name)+'</td><td>'+esc(it.spec)+'</td><td>'+esc(it.unit)+'</td>'
-        +'<td class="num">'+esc(it.qty||"-")+'</td><td class="num">'+fmtMoney(it.unitPrice)+'</td></tr>';
+        +'<td class="num">'+esc(it.qty||"-")+'</td><td class="num">'+esc(fmtUnitPrice(it.unitPrice))+'</td></tr>';
     }).join("");
     var execBlock = items ? '<div class="block"><h3>실행양식 반영 내역 <button class="btn ghost" id="btnCopyExec" type="button" style="font-size:11px;padding:4px 10px;margin-left:6px;">⧉ 실행양식 복사</button></h3><div class="table-wrap"><table class="exec">'
       +'<thead><tr><th>품명</th><th>규격</th><th>단위</th><th>수량</th><th>단가</th></tr></thead><tbody>'+items+'</tbody></table></div></div>' : "";
@@ -1867,7 +1874,7 @@
         +'<input data-f="spec" data-i="'+i+'" placeholder="규격" value="'+esc(it.spec)+'">'
         +'<input data-f="unit" data-i="'+i+'" placeholder="단위" value="'+esc(it.unit)+'">'
         +'<input data-f="qty" data-i="'+i+'" inputmode="decimal" placeholder="수량" value="'+esc(it.qty)+'">'
-        +'<input data-f="unitPrice" data-i="'+i+'" inputmode="numeric" placeholder="단가" value="'+esc(it.unitPrice)+'">'
+        +'<input data-f="unitPrice" data-i="'+i+'" placeholder="단가 (숫자 또는 &#39;최근발주단가 참고&#39; 등)" value="'+esc(it.unitPrice)+'">'
         +'<input data-f="amount" data-i="'+i+'" placeholder="금액" value="'+esc(it.amount)+'" readonly style="background:var(--surface-2);color:var(--ink-soft);">'
         +'<button class="rm" type="button" data-rm="'+i+'">✕</button>'
       +'</div>';
@@ -1901,10 +1908,18 @@
       ["input","change","blur"].forEach(function(evt){
         inp.addEventListener(evt, function(){
           var i = +inp.getAttribute("data-i");
-          var digits = inp.value.replace(/[^0-9]/g,"");
-          var formatted = digits ? Number(digits).toLocaleString("ko-KR") : "";
-          if(inp.value !== formatted) inp.value = formatted;
-          S.formExecItems[i].unitPrice = formatted;
+          var raw = inp.value;
+          // 숫자(와 콤마)만 입력했을 때만 1,000 단위 콤마를 자동으로 넣어준다.
+          // "최근발주단가 참고"처럼 글자가 섞여 있으면 손대지 않고 그대로 둬서
+          // 단가란에 안내 문구도 자유롭게 적을 수 있게 한다.
+          if(/^[0-9,]+$/.test(raw)){
+            var digits = raw.replace(/[^0-9]/g,"");
+            var formatted = digits ? Number(digits).toLocaleString("ko-KR") : "";
+            if(inp.value !== formatted) inp.value = formatted;
+            S.formExecItems[i].unitPrice = formatted;
+          } else {
+            S.formExecItems[i].unitPrice = raw;
+          }
           recalc(i);
         });
       });
