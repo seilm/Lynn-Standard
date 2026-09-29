@@ -446,11 +446,11 @@ img{ max-width:100%; }
   .site-control-row label.field-sep{ margin-left:12px; }
   .site-control-row input[type="date"]{
     padding:5px 9px; border-radius:7px; border:1px solid var(--line); background:var(--surface);
-    color:var(--ink); font-size:12px; width:140px; max-width:140px; text-align:center;
+    color:var(--ink); font-size:12px; width:140px; max-width:140px; text-align:left;
   }
   .site-control-row select{
     padding:5px 12px; border-radius:7px; border:1px solid var(--line); background:var(--surface);
-    color:var(--ink); font-size:12px; width:140px; max-width:140px; text-align:center; text-align-last:center;
+    color:var(--ink); font-size:12px; width:140px; max-width:140px; text-align:left; text-align-last:left;
   }
   /* 승인완료 상태처럼 잠겨서 수정 못 할 때는 브라우저가 필드마다 다르게 흐리게 처리해서 색이
      서로 달라 보이던 걸 통일하고, select의 화살표도 없애서 "선택 가능해 보이는" 느낌을 없앤다. */
