@@ -1644,7 +1644,7 @@
         : '<button class="btn ghost sm" id="btnArchiveChange" type="button">보관함으로 이동</button>';
     }
     var deleteBtnHtml = canDelete() ? '<button class="btn danger sm" id="btnDeleteToggle" type="button">삭제</button>' : "";
-    var actionsRow = (editBtnHtml || archiveBtnHtml || deleteBtnHtml) ? '<div class="card-actions">'+editBtnHtml+archiveBtnHtml+deleteBtnHtml+'</div>' : "";
+    var actionsRow = (editBtnHtml || archiveBtnHtml || deleteBtnHtml) ? '<div class="card-actions">'+archiveBtnHtml+editBtnHtml+deleteBtnHtml+'</div>' : "";
     var deleteBlock = "";
     if(canDelete()){
       var delOpen = S.deleteConfirmId === c.id;
@@ -2813,9 +2813,13 @@
 
   /* ============ site compliance (현장별 실행 반영 체크) ============ */
   function siteRelevantChanges(s){
-    // 이미 지침서 개정판에 반영되어 보관함으로 넘어간 카드는 현장 체크리스트에도 더 이상
-    // 뜨지 않아야 한다 — 최신 지침서를 그대로 따르기만 하면 되고, 개별 체크가 필요 없어졌기 때문.
-    var approved = S.changes.filter(function(c){ return c.status==="approved" && !isChangeArchived(c); });
+    // 아직 준비 중인(초안) 체크리스트에서는, 이미 지침서 개정판에 반영되어 보관함으로 넘어간
+    // 카드를 걸러낸다 — 새로 체크리스트를 채울 때 이미 지침서에 반영된 카드까지 다시 체크할
+    // 필요는 없기 때문. 반면 이미 승인(또는 승인대기)까지 끝난 체크리스트는 그 시점의 검토 기록을
+    // 그대로 유지해야 하므로, 나중에 카드가 보관함으로 옮겨지더라도 그 현장의 체크리스트에서
+    // 사라지면 안 된다 — 그래서 잠긴 체크리스트에서는 보관 여부와 상관없이 그대로 보여준다.
+    var excludeArchived = !siteChecklistLocked(s);
+    var approved = S.changes.filter(function(c){ return c.status==="approved" && (!excludeArchived || !isChangeArchived(c)); });
     if(!s.deadline) return { before: approved, after: [] };
     var before = approved.filter(function(c){ return (c.changeDate||"") <= s.deadline; });
     var after = approved.filter(function(c){ return (c.changeDate||"") > s.deadline; });
@@ -2963,7 +2967,7 @@
   }
   function viewArchive(){
     var head = '<div class="content-head"><div><h1>보관함</h1>'
-      +'<div class="meta">파트장/관리자가 지침서 개정판에 반영됐다고 확인해 "보관함으로 이동" 처리한, 더 이상 현장 체크리스트나 목록에 나오지 않는 지난 변경 이력이에요.</div></div></div>';
+      +'<div class="meta">지침서 개정판에 반영됐다고 확인해 보관 처리한 지난 변경 이력이에요.</div></div></div>';
     var items = S.changes.filter(isChangeArchived).slice().sort(byDateDesc);
     if(!items.length){
       return head + '<div class="empty">아직 보관된 항목이 없습니다. 카드 상세 화면에서 "보관함으로 이동"을 누르면 여기로 옮겨져요.</div>';
