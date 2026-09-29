@@ -671,7 +671,8 @@
       submittedById:"submitted_by", submittedByName:"submitted_by_name", submittedAt:"submitted_at",
       approvedById:"approved_by", approvedByName:"approved_by_name", approvedAt:"approved_at",
       editedById:"edited_by", editedByName:"edited_by_name", editedAt:"edited_at",
-      rejectReason:"reject_reason", createdAt:"created_at"
+      rejectReason:"reject_reason", createdAt:"created_at",
+      archived:"archived", archivedById:"archived_by", archivedByName:"archived_by_name", archivedAt:"archived_at"
     },
     sites: {
       name:"name", deadline:"deadline", checklistStatus:"checklist_status", appliedMap:"applied_map",
@@ -1636,8 +1637,14 @@
       editBtnHtml = canEditChange(c) ? '<button class="btn ghost sm" id="btnEditChange" type="button">수정</button>' : "";
     }
 
+    var archiveBtnHtml = "";
+    if(c.status==="approved" && canArchiveChange()){
+      archiveBtnHtml = isChangeArchived(c)
+        ? '<button class="btn ghost sm" id="btnUnarchiveChange" type="button">보관함에서 복원</button>'
+        : '<button class="btn ghost sm" id="btnArchiveChange" type="button">보관함으로 이동</button>';
+    }
     var deleteBtnHtml = canDelete() ? '<button class="btn danger sm" id="btnDeleteToggle" type="button">삭제</button>' : "";
-    var actionsRow = (editBtnHtml || deleteBtnHtml) ? '<div class="card-actions">'+editBtnHtml+deleteBtnHtml+'</div>' : "";
+    var actionsRow = (editBtnHtml || archiveBtnHtml || deleteBtnHtml) ? '<div class="card-actions">'+editBtnHtml+archiveBtnHtml+deleteBtnHtml+'</div>' : "";
     var deleteBlock = "";
     if(canDelete()){
       var delOpen = S.deleteConfirmId === c.id;
@@ -1652,7 +1659,7 @@
       +'<a class="back-link" href="'+esc(S.lastListHash)+'">&larr; 목록으로</a>'
       +'<div class="detail-card">'
         +'<div class="detail-crumb">'+esc(c.major)+' / '+esc(c.minor)+'</div>'
-        +'<div class="detail-top"><h2>'+esc(c.title)+'</h2><div style="display:flex;gap:6px;flex-wrap:wrap;flex-shrink:0;">'+urgencyChip(c.urgency)+statusChip(c.status)+'</div></div>'
+        +'<div class="detail-top"><h2>'+esc(c.title)+'</h2><div style="display:flex;gap:6px;flex-wrap:wrap;flex-shrink:0;">'+urgencyChip(c.urgency)+statusChip(c.status)+(isChangeArchived(c) ? '<span class="chip neutral" title="지침서 개정판에 반영되어 목록·체크리스트에서 제외됐어요.">보관됨</span>' : '')+'</div></div>'
         +tagsBlock
         +'<div class="fact-line">'
           +'<span class="fl-item"><b>날짜</b><span class="fl-val mono">'+fmtDate(c.changeDate,precision)+'</span></span>'
@@ -1749,6 +1756,10 @@
     if(dc) dc.addEventListener("click", function(){ S.deleteConfirmId = null; document.getElementById("deleteBox").classList.remove("show"); });
     var dk = document.getElementById("btnDeleteConfirm");
     if(dk) dk.addEventListener("click", function(){ deleteChange(id); });
+    var ab = document.getElementById("btnArchiveChange");
+    if(ab) ab.addEventListener("click", function(){ archiveChange(id); });
+    var ub = document.getElementById("btnUnarchiveChange");
+    if(ub) ub.addEventListener("click", function(){ unarchiveChange(id); });
   }
 
   function deleteChange(id){
@@ -2479,15 +2490,25 @@
     var doc = S.guidelineDocs[major];
     return (doc && doc.uploadedAt) ? doc.uploadedAt.slice(0,10) : null;
   }
-  // 승인된 변경 카드라도, 그 카드가 속한 공종의 지침서가 카드의 변경일자 이후에 다시 개정됐다면
-  // (= 최신 지침서 자체에 이미 그 변경 내용이 반영됐다면) 더 이상 개별적으로 체크하며 추적할
-  // 필요가 없다. 이런 카드는 자동으로 "개정반영됨"으로 보고 전체 목록·부서별 조회·현장 체크리스트
-  // 에서 걷어내고, 보관함(#/archive)에서만 모아볼 수 있게 한다. 날짜 기준 자동 판단이라 관리자가
-  // 카드마다 따로 처리할 필요는 없고, 지침서를 새로 올리는 순간 그 이전 카드들이 한번에 걸러진다.
+  // 카드가 지침서 개정판에 실제로 반영됐는지는 날짜만으로는 정확히 판단할 수 없어서(지침서가
+  // 개정됐다고 그 사이의 모든 카드가 다 반영됐으리란 보장이 없다), 자동 판단 대신 파트장/관리자가
+  // 직접 "보관함으로 이동" 처리한 카드만 개정반영된 것으로 본다. 보관 처리된 카드는 전체 목록·
+  // 부서별 조회·현장 체크리스트에서 걷어내고, 보관함(#/archive)에서만 모아볼 수 있게 한다.
   function isChangeArchived(c){
-    if(!c || c.status !== "approved") return false;
-    var base = guidelineBaselineDate(c.major);
-    return !!(base && c.changeDate && c.changeDate <= base);
+    return !!(c && c.archived);
+  }
+  function canArchiveChange(){ return canDelete(); }
+  function archiveChange(id){
+    if(!S.db || !canArchiveChange()) return;
+    S.db.doc("changes/"+id).update({ archived:true, archivedById:S.viewerId, archivedByName:S.viewerName||"", archivedAt: nowIso() })
+      .then(function(){ toast("보관함으로 옮겼습니다. 이제 목록·체크리스트에는 나오지 않아요."); })
+      .catch(function(err){ console.warn(err); toast("보관 처리 중 오류가 발생했습니다." + (err && err.message ? " ("+err.message+")" : "")); });
+  }
+  function unarchiveChange(id){
+    if(!S.db || !canArchiveChange()) return;
+    S.db.doc("changes/"+id).update({ archived:false, archivedById:null, archivedByName:"", archivedAt:null })
+      .then(function(){ toast("보관함에서 복원했습니다."); })
+      .catch(function(err){ console.warn(err); toast("복원 중 오류가 발생했습니다." + (err && err.message ? " ("+err.message+")" : "")); });
   }
   function guidelineBaselineBannerHtml(monthYm){
     if(monthYm) return "";
@@ -2924,14 +2945,28 @@
     });
   }
 
-  // 보관함: 지침서 개정판에 이미 반영되어(isChangeArchived) 더 이상 전체 목록·부서별 조회·현장
-  // 체크리스트에 나오지 않는 지난 카드들을 모아서 볼 수 있는 페이지. 공종별로만 묶어서 보여준다.
+  // 보관함: 파트장/관리자가 "보관함으로 이동" 처리한(isChangeArchived) — 즉 지침서 개정판에
+  // 실제로 반영됐다고 직접 확인한 — 지난 카드들을 모아서 볼 수 있는 페이지. 공종별로 묶어서
+  // 보여주고, 잘못 옮겼거나 다시 필요해지면 각 행에서 바로 "복원"할 수 있게 한다.
+  function archiveRowHtml(c){
+    var precision = (c.changeDate||"").length===7 ? "month" : "day";
+    var restoreBtn = canArchiveChange() ? '<button class="row-del" type="button" data-restore-change="'+c.id+'" title="보관함에서 복원" style="width:auto;padding:0 10px;font-size:11px;">복원</button>' : "";
+    return '<div class="row-wrap">'
+      +'<button class="row" data-open="'+c.id+'">'
+        +'<span class="rowdate mono">'+fmtDate(c.changeDate, precision)+'</span>'
+        +'<span class="chip neutral">'+esc(c.minor)+'</span>'
+        +'<div class="rowmain"><div class="rowtitle">'+esc(c.title)+'</div></div>'
+        +urgencyChip(c.urgency)
+      +'</button>'
+      +restoreBtn
+    +'</div>';
+  }
   function viewArchive(){
     var head = '<div class="content-head"><div><h1>보관함</h1>'
-      +'<div class="meta">지침서 개정판에 이미 반영되어 더 이상 현장 체크리스트나 목록에 나오지 않는 지난 변경 이력이에요.</div></div></div>';
+      +'<div class="meta">파트장/관리자가 지침서 개정판에 반영됐다고 확인해 "보관함으로 이동" 처리한, 더 이상 현장 체크리스트나 목록에 나오지 않는 지난 변경 이력이에요.</div></div></div>';
     var items = S.changes.filter(isChangeArchived).slice().sort(byDateDesc);
     if(!items.length){
-      return head + '<div class="empty">아직 보관된 항목이 없습니다. 지침서가 새로 개정되면, 그 이전 변경 카드가 자동으로 여기로 옮겨져요.</div>';
+      return head + '<div class="empty">아직 보관된 항목이 없습니다. 카드 상세 화면에서 "보관함으로 이동"을 누르면 여기로 옮겨져요.</div>';
     }
     var byMajor = {};
     items.forEach(function(c){ (byMajor[c.major]=byMajor[c.major]||[]).push(c); });
@@ -2939,9 +2974,18 @@
     MAJORS.forEach(function(maj){
       var list = byMajor[maj]; if(!list || !list.length) return;
       out += '<div class="section-title" style="--dot:'+MAJOR_COLOR[maj]+';"><span class="dot"></span>'+esc(maj)+'<span style="margin-left:6px;font-size:11px;font-weight:500;color:var(--ink-faint);">'+list.length+'건</span></div>'
-        +'<div class="change-list">'+list.map(function(c){ return rowHtml(c); }).join("")+'</div>';
+        +'<div class="change-list list-roomy">'+list.map(archiveRowHtml).join("")+'</div>';
     });
     return head + out;
+  }
+  function wireArchive(){
+    wireRows(); resolveNames();
+    document.querySelectorAll("[data-restore-change]").forEach(function(el){
+      el.addEventListener("click", function(e){
+        e.stopPropagation();
+        unarchiveChange(el.getAttribute("data-restore-change"));
+      });
+    });
   }
 
   function viewSites(){
@@ -3304,6 +3348,7 @@
     if(parts[0] === "sites" && parts[1]){ wireSiteDetail(parts[1]); return; }
     if(parts[0] === "sites"){ wireSites(); return; }
     if(parts[0] === "dept" && !parts[1]){ wireDeptPicker(); return; }
+    if(parts[0] === "archive"){ wireArchive(); return; }
     wireRows(); resolveNames();
   }
 

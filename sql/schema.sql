@@ -125,11 +125,21 @@ create table if not exists public.changes (
   edited_by_name text,
   edited_at timestamptz,
   reject_reason text,
+  archived boolean not null default false,  -- 지침서 개정판에 반영됐다고 파트장/관리자가 직접 확인해 "보관함"으로 옮긴 카드
+  archived_by uuid references auth.users(id),
+  archived_by_name text,
+  archived_at timestamptz,
   created_at timestamptz not null default now()
 );
 
 -- 이미 만들어진 테이블에도 department 컬럼이 추가되도록 (기존 배포 마이그레이션용).
 alter table public.changes add column if not exists department text not null default '건축예산팀';
+
+-- 이미 만들어진 테이블에도 보관함(개정반영) 관련 컬럼이 추가되도록 (기존 배포 마이그레이션용).
+alter table public.changes add column if not exists archived boolean not null default false;
+alter table public.changes add column if not exists archived_by uuid references auth.users(id);
+alter table public.changes add column if not exists archived_by_name text;
+alter table public.changes add column if not exists archived_at timestamptz;
 
 create index if not exists changes_change_date_idx on public.changes (change_date desc);
 create index if not exists changes_status_idx on public.changes (status);
