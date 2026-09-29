@@ -18,7 +18,7 @@
   // guideline_docs 문서 id는 영문/숫자만 허용되는 저장소가 있어 대공종명을 그대로 쓰지 않고 매핑한다.
   var MAJOR_ID = { "공통가설":"common", "건축":"arch", "현장관리비":"sitecost" };
 
-  var DEPARTMENTS = ["건축예산팀","건축기획팀","품질기술팀","설계팀","상품기획팀","인테리어팀","외주관리팀","자재구매팀","스마트기술팀","안전보건실","경영지원팀"];
+  var DEPARTMENTS = ["건축예산팀","건축기획팀","품질기술팀","설계팀","상품기획팀","인테리어팀","외주관리팀","자재구매팀","스마트기술팀","안전보건실","경영지원팀","EM기술팀"];
   var DEFAULT_DEPARTMENT = "건축예산팀";
 
   var ACCEPT_EXT = {
@@ -1849,7 +1849,7 @@
           +'<textarea id="f-reason" placeholder="배경, 지시자, 근거 등" style="width:100%;"></textarea>'
         +'</div></details>'
         +'<details class="f-details" id="secFiles"><summary>첨부자료 (선택)</summary><div class="f-details-body">'
-          +'<div class="file-drop">PDF · 이미지(PNG/JPG) · Excel(XLSX/XLS) · CSV · TXT · 이메일(EML) 파일을 첨부할 수 있어요.<br>Word·PPT 원본은 PDF로 변환 후 첨부해주세요.<br><input type="file" id="f-files" multiple accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.csv,.txt,.md,.json,.xlsx,.xls,.eml" style="margin-top:8px;"></div>'
+          +'<div class="file-drop">이 영역에 파일을 끌어다 놓거나 아래에서 선택해주세요.<br>PDF · 이미지(PNG/JPG) · Excel(XLSX/XLS) · CSV · TXT · 이메일(EML) 파일을 첨부할 수 있어요.<br>Word·PPT 원본은 PDF로 변환 후 첨부해주세요.<br><input type="file" id="f-files" multiple accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.csv,.txt,.md,.json,.xlsx,.xls,.eml" style="margin-top:8px;"></div>'
           +'<div class="file-chips" id="fileChips"></div>'
         +'</div></details>'
         +'<div class="f-field full" style="margin-top:6px;"><label for="f-tags">태그 (선택, 쉼표로 구분)</label><input id="f-tags" type="text" placeholder="예: 방수, 단열, LH"></div>'
@@ -1921,11 +1921,53 @@
   function renderFileChips(){
     var wrap = document.getElementById("fileChips");
     if(!wrap) return;
+    // 마우스로 끌어서 순서를 바꿀 수 있게 각 칩을 draggable로 두고, 드래그 손잡이(⠿)를 붙여서
+    // 끌 수 있다는 걸 눈으로도 알 수 있게 한다.
     wrap.innerHTML = S.formAttachments.map(function(a,i){
-      return '<div class="file-chip"><span>'+esc(a.name)+'</span><button type="button" data-rmfile="'+i+'">✕</button></div>';
+      return '<div class="file-chip" draggable="true" data-idx="'+i+'">'
+        +'<span class="file-chip-handle" aria-hidden="true">⠿</span>'
+        +'<span>'+esc(a.name)+'</span>'
+        +'<button type="button" data-rmfile="'+i+'" aria-label="첨부 삭제">✕</button>'
+      +'</div>';
     }).join("");
     wrap.querySelectorAll("[data-rmfile]").forEach(function(btn){
       btn.addEventListener("click", function(){ S.formAttachments.splice(+btn.getAttribute("data-rmfile"),1); renderFileChips(); });
+    });
+    wireFileChipReorder(wrap);
+  }
+
+  // 첨부파일 칩을 드래그해서 순서를 바꾼다. 네이티브 HTML5 드래그앤드롭이라 별도 라이브러리가 필요 없다.
+  function wireFileChipReorder(wrap){
+    var dragIdx = null;
+    wrap.querySelectorAll(".file-chip").forEach(function(chip){
+      chip.addEventListener("dragstart", function(e){
+        dragIdx = +chip.getAttribute("data-idx");
+        chip.classList.add("dragging");
+        if(e.dataTransfer){
+          e.dataTransfer.effectAllowed = "move";
+          try{ e.dataTransfer.setData("text/plain", String(dragIdx)); }catch(err){}
+        }
+      });
+      chip.addEventListener("dragend", function(){
+        dragIdx = null;
+        wrap.querySelectorAll(".file-chip").forEach(function(c){ c.classList.remove("dragging","drag-over"); });
+      });
+      chip.addEventListener("dragover", function(e){
+        e.preventDefault();
+        if(e.dataTransfer) e.dataTransfer.dropEffect = "move";
+        chip.classList.add("drag-over");
+      });
+      chip.addEventListener("dragleave", function(){ chip.classList.remove("drag-over"); });
+      chip.addEventListener("drop", function(e){
+        e.preventDefault();
+        e.stopPropagation();
+        var toIdx = +chip.getAttribute("data-idx");
+        chip.classList.remove("drag-over");
+        if(dragIdx === null || dragIdx === toIdx) return;
+        var moved = S.formAttachments.splice(dragIdx, 1)[0];
+        S.formAttachments.splice(toIdx, 0, moved);
+        renderFileChips();
+      });
     });
   }
 
@@ -1969,6 +2011,19 @@
     }).catch(function(err){
       console.warn(err);
       toast(file.name + " 업로드 중 오류가 발생했습니다.");
+    });
+  }
+
+  // <input type=file> 선택과 드래그&드롭 두 경로가 같은 검증·업로드 로직을 타게 한다.
+  function handleIncomingFiles(fileList){
+    Array.prototype.slice.call(fileList||[]).forEach(function(file){
+      var ext = "." + (file.name.split(".").pop()||"").toLowerCase();
+      var mime = ACCEPT_EXT[ext];
+      if(!mime){
+        toast(file.name + " : 지원하지 않는 형식입니다 (PDF/이미지/Excel/CSV/TXT/EML만 가능)");
+        return;
+      }
+      uploadAttachment(file, mime);
     });
   }
 
@@ -2029,18 +2084,31 @@
     });
 
     document.getElementById("f-files").addEventListener("change", function(e){
-      var files = Array.prototype.slice.call(e.target.files||[]);
-      files.forEach(function(file){
-        var ext = "." + (file.name.split(".").pop()||"").toLowerCase();
-        var mime = ACCEPT_EXT[ext];
-        if(!mime){
-          toast(file.name + " : 지원하지 않는 형식입니다 (PDF/이미지/Excel/CSV/TXT/EML만 가능)");
-          return;
-        }
-        uploadAttachment(file, mime);
-      });
+      handleIncomingFiles(e.target.files);
       e.target.value = "";
     });
+
+    // 파일을 끌어다 놓기 — 브라우저가 드롭 위치에서 파일을 열어버리지 않도록 dragover에서도
+    // 반드시 preventDefault를 해줘야 drop 이벤트가 제대로 발생한다.
+    var dropZone = document.querySelector(".file-drop");
+    if(dropZone){
+      ["dragenter","dragover"].forEach(function(evt){
+        dropZone.addEventListener(evt, function(e){
+          e.preventDefault(); e.stopPropagation();
+          dropZone.classList.add("drag-over");
+        });
+      });
+      ["dragleave","drop"].forEach(function(evt){
+        dropZone.addEventListener(evt, function(e){
+          e.preventDefault(); e.stopPropagation();
+          dropZone.classList.remove("drag-over");
+        });
+      });
+      dropZone.addEventListener("drop", function(e){
+        var files = e.dataTransfer && e.dataTransfer.files;
+        if(files && files.length) handleIncomingFiles(files);
+      });
+    }
 
     document.getElementById("cancelForm").addEventListener("click", function(){ location.hash = c ? "#/item/"+editId : "#/"; });
     document.getElementById("submitForm").addEventListener("click", function(){ submitForm(editId, false); });

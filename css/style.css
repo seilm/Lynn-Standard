@@ -417,9 +417,22 @@ img{ max-width:100%; }
   @media (max-width:700px){ .exec-row{ grid-template-columns:1fr 1fr; } }
   .exec-row input{ padding:7px 8px; border-radius:6px; border:1px solid var(--line); background:var(--surface); font-size:12.5px; width:100%; }
   .exec-row .rm{ width:26px; height:26px; border-radius:6px; border:1px solid var(--line); background:var(--surface); flex-shrink:0; }
-  .file-drop{ border:1.5px dashed var(--line); border-radius:var(--radius); padding:16px; text-align:center; font-size:12.5px; color:var(--ink-faint); }
+  .file-drop{
+    border:1.5px dashed var(--line); border-radius:var(--radius); padding:16px; text-align:center;
+    font-size:12.5px; color:var(--ink-faint); transition:background .12s ease, border-color .12s ease;
+  }
+  /* 파일을 끌고 올라왔을 때 여기다 놓으면 된다는 걸 색으로 확실히 보여준다. */
+  .file-drop.drag-over{ border-color:var(--accent); background:var(--accent-soft); color:var(--accent-strong); }
   .file-chips{ display:flex; flex-wrap:wrap; gap:7px; margin-top:9px; }
-  .file-chip{ display:flex; align-items:center; gap:6px; padding:5px 10px; border-radius:999px; background:var(--surface-2); border:1px solid var(--line); font-size:11.5px; }
+  .file-chip{
+    display:flex; align-items:center; gap:6px; padding:5px 10px; border-radius:999px; background:var(--surface-2);
+    border:1px solid var(--line); font-size:11.5px; cursor:grab; transition:opacity .12s ease, border-color .12s ease;
+  }
+  .file-chip:active{ cursor:grabbing; }
+  .file-chip.dragging{ opacity:.4; }
+  /* 드롭 대상 칩 왼쪽에 강조선을 줘서 "여기 자리로 들어간다"는 걸 보여준다. */
+  .file-chip.drag-over{ border-color:var(--accent); box-shadow:inset 2px 0 0 var(--accent); }
+  .file-chip-handle{ color:var(--ink-faint); font-size:12px; line-height:1; }
   .file-chip button{ background:none; border:none; color:var(--ink-faint); font-size:13px; line-height:1; padding:0; }
   .form-actions{ display:flex; gap:8px; justify-content:flex-end; margin-top:6px; }
 
