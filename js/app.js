@@ -2057,7 +2057,10 @@
     var changeDate = document.getElementById("f-changeDate").value;
     var effScope = document.getElementById("f-effScope").value.trim() || "전현장";
     var reason = document.getElementById("f-reason").value.trim();
-    var urgency = document.getElementById("f-urgency").value;
+    // DB의 urgency 컬럼은 'required'/'confirm' 또는 NULL만 허용하는데(체크 제약),
+    // "중요도: 일반"을 고르면 <select>가 빈 문자열("")을 주게 되어 있어 그대로 보내면
+    // 빈 문자열이 NULL도 아니고 두 값도 아니라서 제약 위반으로 등록/수정이 실패했다.
+    var urgency = document.getElementById("f-urgency").value || null;
     var department = document.getElementById("f-department").value || DEFAULT_DEPARTMENT;
     var tags = document.getElementById("f-tags").value.split(",").map(function(s){ return s.trim().replace(/^#/,""); }).filter(Boolean);
 
@@ -2084,7 +2087,9 @@
         location.hash = "#/item/"+editId;
       }).catch(function(err){
         console.warn(err);
-        toast("수정 중 오류가 발생했습니다.");
+        // 실제 DB 오류 메시지를 그대로 보여줘야 다음에 비슷한 문제가 생겼을 때 원인을 바로 알 수 있다
+        // (예: 이번에 "중요도: 일반"을 고르면 빈 문자열이 넘어가 DB 제약에 걸려 조용히 실패했었다).
+        toast("수정 중 오류가 발생했습니다." + (err && err.message ? " ("+err.message+")" : ""));
       });
       return;
     }
@@ -2097,7 +2102,7 @@
       location.hash = "#/item/"+ref.id;
     }).catch(function(err){
       console.warn(err);
-      toast("등록 중 오류가 발생했습니다.");
+      toast("등록 중 오류가 발생했습니다." + (err && err.message ? " ("+err.message+")" : ""));
     });
   }
 
@@ -2561,7 +2566,11 @@
     var name = S.viewerName || "";
     var email = (S.session && S.session.user && S.session.user.email) || "";
     var label = (name + (email ? " · "+email : "")).trim() || "Lynn Standard";
-    var stamp = nowIso().slice(0,16).replace("T"," ");
+    // nowIso()(=toISOString())는 항상 UTC 기준이라 한국 시간보다 9시간 느리게 찍혔다.
+    // 워터마크는 "지금 이 화면을 본 사람"을 보여주려는 거라 보는 사람의 로컬 시각으로 찍어야 한다.
+    var d = new Date();
+    function pad2(n){ return (n<10?"0":"")+n; }
+    var stamp = d.getFullYear()+"-"+pad2(d.getMonth()+1)+"-"+pad2(d.getDate())+" "+pad2(d.getHours())+":"+pad2(d.getMinutes());
     // 타일이 좁으면 회전된 글자가 타일 경계에서 잘려 보이므로(다음 타일에서 다시 시작되는 것처럼
     // 보임), 텍스트를 타일 중심에 가운데정렬로 두고 타일 자체를 글자가 절대 안 잘릴 만큼 넉넉하게 잡는다.
     // 진하게 만드는 대신(그러면 본문이 안 읽혀서), 옅은 톤은 그대로 두고 글자 크기와 타일을
