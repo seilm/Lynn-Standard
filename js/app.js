@@ -1010,7 +1010,7 @@
     }
 
     var parts = route();
-    var listLikeRoutes = ["month","approvals","sites","dept"];
+    var listLikeRoutes = ["month","approvals","sites","dept","archive"];
     if(!parts[0] || listLikeRoutes.indexOf(parts[0])!==-1){
       S.lastListHash = location.hash || "#/";
     }
@@ -1034,6 +1034,7 @@
     else if(parts[0] === "sites") body = viewSites();
     else if(parts[0] === "dept" && parts[1]){ S.filters.department = decodeURIComponent(parts[1]); body = viewList(null); }
     else if(parts[0] === "dept") body = viewDeptPicker();
+    else if(parts[0] === "archive") body = viewArchive();
     else if(parts[0] === "month" && parts[1]) body = viewList(parts[1]);
     else body = viewList(null);
 
@@ -1166,9 +1167,9 @@
     var parts = route();
     var curMajor = S.filters.major, curMinor = S.filters.minor;
 
-    var sidebarItems = '<div class="cat-item'+(!curMajor?' on':'')+'" data-nav="all">전체 공종<span class="cnt">'+S.changes.length+'</span></div>';
+    var sidebarItems = '<div class="cat-item'+(!curMajor?' on':'')+'" data-nav="all">전체 공종<span class="cnt">'+S.changes.filter(function(c){ return !isChangeArchived(c); }).length+'</span></div>';
     MAJORS.forEach(function(maj){
-      var majCount = S.changes.filter(function(c){ return c.major===maj; }).length;
+      var majCount = S.changes.filter(function(c){ return c.major===maj && !isChangeArchived(c); }).length;
       var collapsed = !!S.collapsedMajors[maj];
       sidebarItems += '<div class="cat-root'+(curMajor===maj && !curMinor?' on':'')+'" style="--dot:'+MAJOR_COLOR[maj]+';">'
         +'<span class="cat-root-dot"></span>'
@@ -1178,7 +1179,7 @@
       +'</div>';
       if(!collapsed){
         CATEGORY_TREE[maj].forEach(function(min){
-          var c = S.changes.filter(function(x){ return x.major===maj && x.minor===min; }).length;
+          var c = S.changes.filter(function(x){ return x.major===maj && x.minor===min && !isChangeArchived(x); }).length;
           sidebarItems += '<div class="cat-item'+(curMajor===maj&&curMinor===min?' on':'')+'" data-nav-major="'+esc(maj)+'" data-nav-minor="'+esc(min)+'">'+esc(min)+'<span class="cnt">'+c+'</span></div>';
         });
       }
@@ -1194,6 +1195,7 @@
         +'<button class="pill tb" data-nav="approvals">승인대기'+(pc>0?'<span class="badge">'+pc+'</span>':'')+'</button>'
         +'<button class="pill tb" data-nav="sites">현장현황</button>'
         +'<button class="pill tb" data-nav="dept">부서별</button>'
+        +'<button class="pill tb" data-nav="archive">보관함</button>'
         +'<button class="pill tb'+(S.docsearchOpen?' on':'')+'" id="docsearchToggleBtn" type="button">✦ 지침서 검색</button>'
         +(canWrite() ? '<button class="btn accent" data-nav="new">+ 신규 등록</button>' : '')
       +'</div>'
@@ -1349,6 +1351,7 @@
     // 대/중분류 스코프 필터는 건너뛴다 (검색어가 없을 때만 사이드바에서 고른 공종으로 좁힌다).
     var searching = !!S.filters.q;
     return S.changes.filter(function(c){
+      if(isChangeArchived(c)) return false;
       if(!searching){
         if(S.filters.major && c.major !== S.filters.major) return false;
         if(S.filters.minor && c.minor !== S.filters.minor) return false;
@@ -1396,9 +1399,9 @@
     var statBar = "";
     if(!monthYm && !S.filters.major && !S.filters.minor && !S.filters.department){
       var curYm = ymOf(new Date());
-      var thisMonthCount = S.changes.filter(function(c){ return (c.changeDate||"").slice(0,7)===curYm; }).length;
+      var thisMonthCount = S.changes.filter(function(c){ return (c.changeDate||"").slice(0,7)===curYm && !isChangeArchived(c); }).length;
       statBar = '<div class="stat-row">'
-        +'<button class="stat-tile" type="button" data-stat="all"><div class="n mono">'+S.changes.filter(function(c){return c.status==="approved";}).length+'</div><div class="l">전체 등록 건수</div></button>'
+        +'<button class="stat-tile" type="button" data-stat="all"><div class="n mono">'+S.changes.filter(function(c){return c.status==="approved" && !isChangeArchived(c);}).length+'</div><div class="l">전체 등록 건수</div></button>'
         +'<button class="stat-tile orange" type="button" data-stat="month"><div class="n mono">'+thisMonthCount+'</div><div class="l">이번달 변경 건수</div></button>'
         +'<button class="stat-tile amber" type="button" data-stat="pending"><div class="n mono">'+pendingCount()+'</div><div class="l">승인대기 건수</div></button>'
       +'</div>';
@@ -2476,6 +2479,16 @@
     var doc = S.guidelineDocs[major];
     return (doc && doc.uploadedAt) ? doc.uploadedAt.slice(0,10) : null;
   }
+  // 승인된 변경 카드라도, 그 카드가 속한 공종의 지침서가 카드의 변경일자 이후에 다시 개정됐다면
+  // (= 최신 지침서 자체에 이미 그 변경 내용이 반영됐다면) 더 이상 개별적으로 체크하며 추적할
+  // 필요가 없다. 이런 카드는 자동으로 "개정반영됨"으로 보고 전체 목록·부서별 조회·현장 체크리스트
+  // 에서 걷어내고, 보관함(#/archive)에서만 모아볼 수 있게 한다. 날짜 기준 자동 판단이라 관리자가
+  // 카드마다 따로 처리할 필요는 없고, 지침서를 새로 올리는 순간 그 이전 카드들이 한번에 걸러진다.
+  function isChangeArchived(c){
+    if(!c || c.status !== "approved") return false;
+    var base = guidelineBaselineDate(c.major);
+    return !!(base && c.changeDate && c.changeDate <= base);
+  }
   function guidelineBaselineBannerHtml(monthYm){
     if(monthYm) return "";
     if(S.filters.department) return ""; // 부서별 조회 화면에서는 안 보여준다 (부제목과 함께 정리).
@@ -2779,7 +2792,9 @@
 
   /* ============ site compliance (현장별 실행 반영 체크) ============ */
   function siteRelevantChanges(s){
-    var approved = S.changes.filter(function(c){ return c.status==="approved"; });
+    // 이미 지침서 개정판에 반영되어 보관함으로 넘어간 카드는 현장 체크리스트에도 더 이상
+    // 뜨지 않아야 한다 — 최신 지침서를 그대로 따르기만 하면 되고, 개별 체크가 필요 없어졌기 때문.
+    var approved = S.changes.filter(function(c){ return c.status==="approved" && !isChangeArchived(c); });
     if(!s.deadline) return { before: approved, after: [] };
     var before = approved.filter(function(c){ return (c.changeDate||"") <= s.deadline; });
     var after = approved.filter(function(c){ return (c.changeDate||"") > s.deadline; });
@@ -2895,7 +2910,7 @@
     var head = '<div class="content-head"><div><h1>부서별 조회</h1>'
       +'<div class="meta">유관부서별로 등록된 실행 편성 기준 변경 이력을 모아볼 수 있어요.</div></div></div>';
     var rows = DEPARTMENTS.map(function(d){
-      var cnt = S.changes.filter(function(c){ return (c.department||DEFAULT_DEPARTMENT) === d; }).length;
+      var cnt = S.changes.filter(function(c){ return (c.department||DEFAULT_DEPARTMENT) === d && !isChangeArchived(c); }).length;
       return '<button class="row" data-open-dept="'+encodeURIComponent(d)+'">'
         +'<div class="rowmain"><div class="rowtitle">'+esc(d)+'</div></div>'
         +'<span class="chip neutral">'+cnt+'건</span>'
@@ -2907,6 +2922,26 @@
     document.querySelectorAll("[data-open-dept]").forEach(function(el){
       el.addEventListener("click", function(){ location.hash = "#/dept/"+el.getAttribute("data-open-dept"); });
     });
+  }
+
+  // 보관함: 지침서 개정판에 이미 반영되어(isChangeArchived) 더 이상 전체 목록·부서별 조회·현장
+  // 체크리스트에 나오지 않는 지난 카드들을 모아서 볼 수 있는 페이지. 공종별로만 묶어서 보여준다.
+  function viewArchive(){
+    var head = '<div class="content-head"><div><h1>보관함</h1>'
+      +'<div class="meta">지침서 개정판에 이미 반영되어 더 이상 현장 체크리스트나 목록에 나오지 않는 지난 변경 이력이에요.</div></div></div>';
+    var items = S.changes.filter(isChangeArchived).slice().sort(byDateDesc);
+    if(!items.length){
+      return head + '<div class="empty">아직 보관된 항목이 없습니다. 지침서가 새로 개정되면, 그 이전 변경 카드가 자동으로 여기로 옮겨져요.</div>';
+    }
+    var byMajor = {};
+    items.forEach(function(c){ (byMajor[c.major]=byMajor[c.major]||[]).push(c); });
+    var out = "";
+    MAJORS.forEach(function(maj){
+      var list = byMajor[maj]; if(!list || !list.length) return;
+      out += '<div class="section-title" style="--dot:'+MAJOR_COLOR[maj]+';"><span class="dot"></span>'+esc(maj)+'<span style="margin-left:6px;font-size:11px;font-weight:500;color:var(--ink-faint);">'+list.length+'건</span></div>'
+        +'<div class="change-list">'+list.map(function(c){ return rowHtml(c); }).join("")+'</div>';
+    });
+    return head + out;
   }
 
   function viewSites(){
