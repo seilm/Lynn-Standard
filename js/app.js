@@ -711,12 +711,83 @@
   }
   var FIELD_MAP_REV = { changes: reverseMap(FIELD_MAP.changes), sites: reverseMap(FIELD_MAP.sites), members: reverseMap(FIELD_MAP.members), guidelineDocs: reverseMap(FIELD_MAP.guidelineDocs), guidelineChunks: reverseMap(FIELD_MAP.guidelineChunks), guidelineRevisions: reverseMap(FIELD_MAP.guidelineRevisions) };
 
+
+  /* ============ Storage 서명 URL (비공개 버킷) ============
+     attachments / guidelines 버킷은 비공개이고, 조회가 승인된 계정(can_view)만 읽을 수 있다.
+     DB에는 예전과 같은 "공개 URL 형태" 문자열을 그대로 저장해 두고(만료되지 않는 식별자 역할),
+     화면에 불러올 때마다 그 경로로 만료되는 서명 URL을 새로 만들어 url 필드를 바꿔 끼운다.
+     저장할 때는 toRow()가 서명 URL을 다시 공개 URL 형태로 되돌려서 DB에 토큰이 남지 않게 한다. */
+  var SIGN_TTL = 6 * 3600;
+  var STORAGE_RE = /\/storage\/v1\/object\/(?:public|sign)\/(attachments|guidelines)\/([^?#]+)/;
+  var signCache = {};   // "bucket/path" -> { url, exp }
+
+  function parseStorageUrl(u){
+    var m = STORAGE_RE.exec(u || "");
+    if(!m) return null;
+    var path = m[2];
+    try{ path = decodeURIComponent(path); }catch(e){}
+    return { bucket: m[1], path: path };
+  }
+  function toPublicForm(u){
+    if(typeof u !== "string" || !parseStorageUrl(u)) return u;
+    return u.split("?")[0].replace("/object/sign/", "/object/public/");
+  }
+  // refs: [{bucket, path, set:function(url)}]  — 한 번에 묶어서 서명 URL을 발급받는다.
+  function signRefs(sb, refs){
+    var now = Date.now(), need = {};
+    refs.forEach(function(r){
+      var key = r.bucket + "/" + r.path, c = signCache[key];
+      if(c && c.exp - now > 30*60*1000){ r.set(c.url); return; }
+      (need[r.bucket] = need[r.bucket] || {})[r.path] = true;
+    });
+    var jobs = Object.keys(need).map(function(bucket){
+      var paths = Object.keys(need[bucket]);
+      return sb.storage.from(bucket).createSignedUrls(paths, SIGN_TTL).then(function(res){
+        (res.data || []).forEach(function(d){
+          if(d && d.signedUrl && !d.error) signCache[bucket + "/" + d.path] = { url: d.signedUrl, exp: now + SIGN_TTL*1000 };
+        });
+      }).catch(function(){});
+    });
+    return Promise.all(jobs).then(function(){
+      refs.forEach(function(r){
+        var c = signCache[r.bucket + "/" + r.path];
+        if(c) r.set(c.url);
+      });
+    });
+  }
+  // rows(DB 행 배열)의 첨부/지침서 URL을 서명 URL로 바꿔 준다. 실패해도 원래 값으로 계속 진행한다.
+  function signRows(sb, coll, rows){
+    var refs = [];
+    (rows || []).forEach(function(row){
+      if(!row) return;
+      if(coll === "changes" && Array.isArray(row.attachments)){
+        row.attachments = row.attachments.map(function(a){
+          var copy = Object.assign({}, a), p = parseStorageUrl(copy.url);
+          if(p) refs.push({ bucket:p.bucket, path:p.path, set:function(u){ copy.url = u; } });
+          return copy;
+        });
+      } else if((coll === "guidelineDocs" || coll === "guidelineRevisions") && row.url){
+        var p2 = parseStorageUrl(row.url);
+        if(p2) refs.push({ bucket:p2.bucket, path:p2.path, set:function(u){ row.url = u; } });
+      }
+    });
+    if(!refs.length) return Promise.resolve(rows);
+    return signRefs(sb, refs).then(function(){ return rows; }, function(){ return rows; });
+  }
+
   function toRow(coll, obj){
     var map = FIELD_MAP[coll] || {};
     var row = {};
     Object.keys(obj||{}).forEach(function(k){
       var col = map[k] || k;
-      row[col] = obj[k];
+      var v = obj[k];
+      // 서명 URL(만료됨)이 DB에 저장되지 않도록 항상 공개 URL 형태로 되돌려서 저장한다.
+      if(k === "attachments" && Array.isArray(v)){
+        v = v.map(function(a){ return (a && a.url) ? Object.assign({}, a, { url: toPublicForm(a.url) }) : a; });
+      } else if(k === "url" && typeof v === "string"){
+        v = toPublicForm(v);
+      }
+      row[col] = v;
     });
     return row;
   }
@@ -799,7 +870,9 @@
           return sb.from(table).select("*").eq("id", id).maybeSingle().then(function(res){
             if(res.error) throw res.error;
             var data = res.data;
-            return { exists: !!data, id: id, data: function(){ return fromRow(coll, data); } };
+            return signRows(sb, coll, data ? [data] : []).then(function(){
+              return { exists: !!data, id: id, data: function(){ return fromRow(coll, data); } };
+            });
           });
         }
       };
@@ -835,10 +908,13 @@
             q.then(function(res){
               if(cancelled) return;
               if(res.error){ if(onError) onError(res.error); return; }
-              var docs = (res.data||[]).map(function(row){
-                return { id: row.id, data: function(){ return fromRow(coll, row); } };
+              return signRows(sb, coll, res.data || []).then(function(rows){
+                if(cancelled) return;
+                var docs = (rows||[]).map(function(row){
+                  return { id: row.id, data: function(){ return fromRow(coll, row); } };
+                });
+                onNext({ docs: docs });
               });
-              onNext({ docs: docs });
             }).catch(function(err){ if(!cancelled && onError) onError(err); });
           }
           fetchAndEmit();
@@ -2032,11 +2108,15 @@
     }).then(function(res){
       if(res.error) throw res.error;
       var pub = S.sb.storage.from("attachments").getPublicUrl(path);
-      meta.url = pub.data.publicUrl;
+      meta.url = pub.data.publicUrl;   // 저장용(공개 URL 형태) — 화면에서는 아래 서명 URL로 바꿔 쓴다
       meta.id = path;
-      S.formAttachments.push(meta);
-      renderFileChips();
-      toast(file.name + " 첨부 완료");
+      return S.sb.storage.from("attachments").createSignedUrl(path, SIGN_TTL).then(function(sr){
+        if(sr && sr.data && sr.data.signedUrl) meta.url = sr.data.signedUrl;   // 저장 시 toRow()가 다시 공개 형태로 되돌림
+      }, function(){}).then(function(){
+        S.formAttachments.push(meta);
+        renderFileChips();
+        toast(file.name + " 첨부 완료");
+      });
     }).catch(function(err){
       console.warn(err);
       toast(file.name + " 업로드 중 오류가 발생했습니다.");
@@ -2547,7 +2627,10 @@
       }
       return S.sb.storage.from("guidelines").upload(path, file, { contentType:"application/pdf", upsert:true }).then(function(r){
         if(r.error) throw r.error;
-        return S.sb.storage.from("guidelines").getPublicUrl(path).data.publicUrl;
+        var pubUrl = S.sb.storage.from("guidelines").getPublicUrl(path).data.publicUrl;  // 저장용(공개 URL 형태)
+        return S.sb.storage.from("guidelines").createSignedUrl(path, SIGN_TTL).then(function(sr){
+          return (sr && sr.data && sr.data.signedUrl) ? sr.data.signedUrl : pubUrl;   // toRow()가 저장 시 공개 형태로 정규화
+        }, function(){ return pubUrl; });
       });
     }).then(function(url){
       var chunks = chunkPagesByBudget(extracted.index, 180000);
